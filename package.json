@@ -1,0 +1,28 @@
+{
+  "name": "shilploka",
+  "version": "1.0.0",
+  "description": "ShilpLoka (शिल्पलोक): Production-ready Ancient Indian Voxel Sandbox Game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --port 5173",
+    "build:web": "node scripts/build_itch.js",
+    "build:itch": "node scripts/build_itch.js",
+    "build:linux": "node scripts/build_desktop.js --target linux",
+    "build:win": "node scripts/build_desktop.js --target win",
+    "build:mac": "node scripts/build_desktop.js --target mac",
+    "build:android": "node scripts/build_android.js",
+    "build:all": "node scripts/build_all.js",
+    "verify": "node verify_shilploka_step3.js",
+    "verify:all": "node verify_shilploka_step1.js && node verify_shilploka_step2.js && node verify_shilploka_step3.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.43.1",
+    "three": "^0.185.1",
+    "vite": "^8.2.2"
+  },
+  "devDependencies": {
+    "vite-plugin-singlefile": "^2.3.3"
+  }
+}

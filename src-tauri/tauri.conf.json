@@ -1,0 +1,83 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/tooling/cli/schema.json",
+  "build": {
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
+    "devPath": "http://localhost:5173",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "ShilpLoka",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "bundle": {
+      "active": true,
+      "category": "Game",
+      "copyright": "© 2026 ShilpLoka Engine. Clean-room Ancient Indian Voxel Sandbox.",
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.0-37 | libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "externalBin": [],
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "identifier": "com.shilploka.game",
+      "longDescription": "ShilpLoka (शिल्पलोक) is a production-ready, cross-platform voxel sandbox game rooted in the Ancient Indian subcontinent (Harappa, Mohenjo-Daro, Lothal, and Pataliputra). Featuring greedy meshing, octree culling, commodity barter economics, and Vedic architecture.",
+      "macOS": {
+        "frameworks": [],
+        "minimumSystemVersion": "10.13",
+        "exceptionDomain": "",
+        "signingIdentity": null,
+        "entitlements": null
+      },
+      "resources": [],
+      "shortDescription": "Ancient Indian Voxel Sandbox Game",
+      "targets": [
+        "deb",
+        "appimage",
+        "rpm",
+        "nsis",
+        "msi",
+        "dmg"
+      ],
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": "",
+        "wix": {
+          "language": "en-US"
+        },
+        "nsis": {
+          "languages": [
+            "English"
+          ]
+        }
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 768,
+        "resizable": true,
+        "title": "ShilpLoka: Ancient Indian Voxel Sandbox | शिल्पलोक",
+        "width": 1280,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ]
+  }
+}
