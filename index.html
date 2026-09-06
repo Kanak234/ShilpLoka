@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShilpLoka: Ancient Voxel Sandbox | शिल्पलोक</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><rect width=%2216%22 height=%2216%22 fill=%22%23b85d3f%22/><rect width=%2216%22 height=%225%22 fill=%22%23d4af37%22/></svg>">
+  <link rel="stylesheet" href="./shilploka.css" />
+</head>
+<body>
+  <!-- 3D WebGL Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Lotus / Chakra Crosshair -->
+  <div id="crosshair">☸</div>
+
+  <!-- Monument Heritage Protection Alert Banner -->
+  <div id="monument-alert" class="monument-banner hidden"></div>
+
+  <!-- Top Action Toolbar -->
+  <div id="top-toolbar" class="top-toolbar">
+    <button id="learning-toggle-btn" class="toolbar-btn">
+      <span class="btn-icon">📖</span> ज्ञान केंद्र (Learning Center) <kbd>H</kbd>
+    </button>
+    <button id="barter-toggle-btn" class="toolbar-btn">
+      <span class="btn-icon">🏺</span> वस्तु-विनिमय (Barter) <kbd>B</kbd>
+    </button>
+    <button id="crafting-toggle-btn" class="toolbar-btn">
+      <span class="btn-icon">☸</span> निर्माण पीठ (Crafting) <kbd>C</kbd>
+    </button>
+  </div>
+
+  <!-- Ancient Indian Vastu & ECS Telemetry HUD -->
+  <div id="hud-overlay" class="ancient-hud">
+    <div class="hud-header">
+      <span class="hud-title">SHILPLOKA: ANCIENT VOXEL</span>
+      <span class="hud-sub">शिल्पलोक • Step 3: Graph Cities, Barter & Crafting Altar</span>
+    </div>
+    <div class="hud-divider"></div>
+    <div class="hud-stat" id="hud-fps">Render FPS: 60</div>
+    <div class="hud-stat" id="hud-physics-fps">Physics: 60 Hz (Fixed)</div>
+    <div class="hud-stat" id="hud-coords">Vastu XYZ: 4.00 / 25.00 / 4.00</div>
+    <div class="hud-stat" id="hud-vastu">Facing: Uttara (North)</div>
+    <div class="hud-stat highlight" id="hud-trade">Route: Harappa Citadel (हड़प्पा दुर्ग)</div>
+    <div class="hud-stat" id="hud-held">Held: Harappan Baked Brick (x48)</div>
+    <div class="hud-stat" id="hud-octree">Octree Frustum: 0/0 Chunks (0% Culled)</div>
+    <div class="hud-stat" id="hud-target">Gaze: Air</div>
+    <div class="hud-stat highlight" id="hud-ecs">ECS: 7 Entities • 20 Components</div>
+    <div class="hud-stat" id="hud-speed">Planar Speed: 0.00 m/s</div>
+    <div class="hud-stat" id="hud-grounded">Bhoomi (Ground): Contact (Yes)</div>
+    <div class="hud-stat" id="hud-mode">Gati (Mode): Padayatra (Walk)</div>
+    <div class="hud-stat highlight">Graph Cities: Harappa • Mohenjo-Daro • Lothal • Pataliputra</div>
+  </div>
+
+  <!-- Bottom Hotbar (1-9) -->
+  <div id="hotbar" class="ancient-hotbar"></div>
+
+  <!-- Controls Guide Overlay -->
+  <div id="controls-hint" class="controls-pill">
+    <span>☸ <strong>Click Screen</strong> to Lock Drishti</span>
+    <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
+    <span><kbd>Space</kbd> Jump</span>
+    <span><kbd>Shift</kbd> Crouch</span>
+    <span><kbd>F</kbd> Fly</span>
+    <span><kbd>B</kbd> Barter</span>
+    <span><kbd>C</kbd> Crafting</span>
+    <span><kbd>H</kbd> Guide</span>
+  </div>
+
+  <!-- In-Game MDN-Style Desi Learning Center Modal -->
+  <div id="learning-modal" class="learning-modal-root hidden"></div>
+
+  <!-- Barter NPC Trading Modal -->
+  <div id="barter-modal" class="barter-modal-root hidden"></div>
+
+  <!-- Vedic Crafting Altar Modal -->
+  <div id="crafting-modal" class="crafting-modal-root hidden"></div>
+
+
+  <script type="module" src="./src/shilploka/shilploka_main.js"></script>
+</body>
+</html>

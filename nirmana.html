@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nirmana: The Ancient Voxel | निर्माण</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><rect width=%2216%22 height=%2216%22 fill=%22%23b85d3f%22/><rect width=%2216%22 height=%225%22 fill=%22%23deb887%22/></svg>">
+  <link rel="stylesheet" href="./nirmana.css" />
+</head>
+<body>
+  <!-- 3D WebGL Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Lotus / Chakra Crosshair -->
+  <div id="crosshair">☸</div>
+
+  <!-- Monument Heritage Protection Alert Banner -->
+  <div id="monument-alert" class="monument-banner"></div>
+
+  <!-- Ancient Indian Vastu Telemetry HUD -->
+  <div id="hud-overlay" class="ancient-hud">
+    <div class="hud-header">
+      <span class="hud-title">NIRMANA: THE ANCIENT VOXEL</span>
+      <span class="hud-sub">सृष्टि एवं वास्तु शास्त्र • Step 4: Graph Cities & Crafting</span>
+    </div>
+    <div class="hud-divider"></div>
+    <div class="hud-stat" id="hud-fps">Render FPS: 60</div>
+    <div class="hud-stat" id="hud-physics-fps">Physics: 60 Hz (Fixed)</div>
+    <div class="hud-stat" id="hud-coords">Vastu XYZ: 0.00 / 0.00 / 0.00</div>
+    <div class="hud-stat" id="hud-vastu">Facing: Uttara (North)</div>
+    <div class="hud-stat" id="hud-biome">Biome: Sindhu Plains (सिन्धु कछार)</div>
+    <div class="hud-stat" id="hud-trade">Route: Harappa-Mohenjo Daro Highway</div>
+    <div class="hud-stat" id="hud-octree">Octree Frustum: 0/0 Chunks (0% Culled)</div>
+    <div class="hud-stat" id="hud-target">Gaze: Sky / Distant Horizon</div>
+    <div class="hud-stat" id="hud-held">Held: Harappan Baked Brick (x48)</div>
+    <div class="hud-stat" id="hud-velocity">Velocity: Vx: 0.0 | Vy: 0.0 | Vz: 0.0</div>
+    <div class="hud-stat" id="hud-grounded">Bhoomi (Ground): Contact (Yes)</div>
+    <div class="hud-stat highlight">Graph Network: Harappa • Mohenjo-Daro • Lothal • Pataliputra</div>
+  </div>
+
+  <!-- Hotbar Quick Selection (1-9) -->
+  <div id="hotbar" class="ancient-hotbar">
+    <!-- Populated dynamically by NirmanaEngine -->
+  </div>
+
+  <!-- Vedic Crafting Altar Modal (Nirmana Peetha) -->
+  <div id="crafting-modal" class="crafting-modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>☸ वैदिक निर्माण पीठ • Vedic Crafting Altar</h2>
+        <button id="modal-close-btn" class="close-btn">&times;</button>
+      </div>
+      <p class="modal-desc">Combine Ancient Indian minerals, bronze, and timber to craft tools and sacred architecture.</p>
+      <div class="modal-divider"></div>
+      <div id="recipes-list" class="recipes-container">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls Guide Overlay -->
+  <div id="controls-hint" class="controls-pill">
+    <span>☸ <strong>Click Screen</strong> to Lock Drishti</span>
+    <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
+    <span><kbd>Space</kbd> Jump</span>
+    <span><kbd>Shift</kbd> Crouch</span>
+    <span><kbd>Ctrl</kbd> Sprint</span>
+    <span><kbd>F</kbd> Vimana</span>
+    <span><kbd>E</kbd> Crafting Altar</span>
+    <span><kbd>1-9</kbd> Hotbar</span>
+    <span><kbd>L-Click</kbd> Mine</span>
+    <span><kbd>R-Click</kbd> Build</span>
+  </div>
+
+  <script type="module" src="./src/nirmana_main.js"></script>
+</body>
+</html>
