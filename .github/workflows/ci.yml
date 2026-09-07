@@ -1,0 +1,47 @@
+name: CI
+
+# This workflow validates the ShilpLoka web build without changing the game code.
+# Browser gameplay verification remains a separate optional step because the local
+# verification script expects a specific Microsoft Edge executable path.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Build from the committed source and lockfile so the CI result matches
+      # the dependencies selected by the project rather than a fresh resolution.
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # npm ci is deterministic and avoids mutating package-lock.json in CI.
+      - name: Install dependencies
+        run: npm ci
+
+      # This is the repository's existing deployable web build command.
+      - name: Build web application
+        run: npm run build
+
+      # Syntax-check verification scripts without launching a browser or server.
+      # This catches accidental JavaScript syntax regressions while keeping CI
+      # independent of a workstation-specific Edge installation.
+      - name: Validate JavaScript syntax
+        run: |
+          node --check verify.js
+          for file in verify_*.js; do
+            [ -e "$file" ] || continue
+            node --check "$file"
+          done
