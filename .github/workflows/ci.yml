@@ -35,6 +35,9 @@ jobs:
       - name: Build web application
         run: npm run build
 
+      - name: Run tests
+        run: npm test
+
       # Syntax-check verification scripts without launching a browser or server.
       # This catches accidental JavaScript syntax regressions while keeping CI
       # independent of a workstation-specific Edge installation.
