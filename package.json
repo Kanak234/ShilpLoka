@@ -15,7 +15,8 @@
     "build:android": "node scripts/build_android.js",
     "build:all": "node scripts/build_all.js",
     "verify": "node verify_shilploka_step3.js",
-    "verify:all": "node verify_shilploka_step1.js && node verify_shilploka_step2.js && node verify_shilploka_step3.js"
+    "verify:all": "node verify_shilploka_step1.js && node verify_shilploka_step2.js && node verify_shilploka_step3.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "puppeteer-core": "^24.43.1",
@@ -23,6 +24,7 @@
     "vite": "^8.2.2"
   },
   "devDependencies": {
-    "vite-plugin-singlefile": "^2.3.3"
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^5.0.0"
   }
 }
