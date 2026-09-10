@@ -1,0 +1,279 @@
+/**
+ * Tests for the voxel world: src/shilploka/world/shilp_world.js.
+ *
+ * These build a REAL ShilpWorld. Three.js geometry, meshes and scenes all
+ * work in Node without a GPU - only rendering needs WebGL - so terrain
+ * generation, meshing, streaming and block edits are exercised exactly as the
+ * game runs them. viewDistance is kept small only to keep the suite fast.
+ */
+import * as THREE from 'three';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ShilpSaveStore } from '../src/shilploka/core/shilp_save.js';
+import { ShilpGreedyMesher } from '../src/shilploka/world/greedy_mesher.js';
+import {
+  CHUNK_SIZE_X,
+  CHUNK_SIZE_Y,
+  CHUNK_SIZE_Z,
+} from '../src/shilploka/world/shilp_chunk.js';
+import { ShilpWorld } from '../src/shilploka/world/shilp_world.js';
+import {
+  SHILP_BLOCK_REGISTRY,
+  ShilpBlockId,
+  canBreakVoxel,
+} from '../src/shilploka/world/voxel_constants.js';
+
+/** Build a small world with a fixed seed so terrain is reproducible. */
+function makeWorld(opts = {}) {
+  return new ShilpWorld(new THREE.Scene(), { seed: 1234, viewDistance: 1, ...opts });
+}
+
+/** Finish all queued chunk loading (the game spreads this over frames). */
+function drain(world) {
+  for (let i = 0; i < 1000 && world.pendingChunkCount > 0; i++) world.processStreamingQueue(64);
+  world.processStreamingQueue(64);   // flush neighbour remeshes too
+}
+
+/** Move the streaming centre and load everything around it. */
+function streamTo(world, x, z) {
+  world.updateStreaming(x, z);
+  drain(world);
+}
+
+/** Highest solid block in a column, or -1. */
+function topSolidY(world, x, z) {
+  for (let y = CHUNK_SIZE_Y - 1; y >= 0; y--) {
+    if (SHILP_BLOCK_REGISTRY[world.getBlock(x, y, z)]?.solid) return y;
+  }
+  return -1;
+}
+
+describe('ShilpWorld', () => {
+  let warnSpy;
+
+  beforeEach(() => {
+    // canBreakVoxel() logs a warning whenever a monument is protected. Silence
+    // it so the test output stays readable; tests below also assert on it.
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  describe('getBlock / setBlock with negative coordinates', () => {
+    // WHY these three cases: JavaScript's % keeps the sign of the dividend, so
+    // -1 % 16 is -1, not 15. Getting the floor-division and wrap-around wrong
+    // is the classic voxel bug, and it only shows up west and south of spawn.
+    it.each([
+      [-1, -1, 15, '-1 is the LAST voxel of chunk -1'],
+      [-16, -1, 0, '-16 is the FIRST voxel of chunk -1'],
+      [-17, -2, 15, '-17 is the last voxel of chunk -2'],
+    ])('world x=%i lands in chunk %i at local %i (%s)', (wx, expectedCx, expectedLx) => {
+      const world = makeWorld();
+      streamTo(world, wx, wx);
+      expect(world.setBlock(wx, 40, wx, ShilpBlockId.HARAPPAN_BAKED_BRICK)).toBe(true);
+
+      const chunk = world.chunks.get(`${expectedCx},${expectedCx}`);
+      expect(chunk).toBeDefined();
+      expect(chunk.getBlock(expectedLx, 40, expectedLx)).toBe(ShilpBlockId.HARAPPAN_BAKED_BRICK);
+      expect(world.getBlock(wx, 40, wx)).toBe(ShilpBlockId.HARAPPAN_BAKED_BRICK);
+    });
+
+    it('does not confuse a negative block with its positive mirror', () => {
+      const world = makeWorld();
+      streamTo(world, 0, 0);
+      world.setBlock(-5, 45, -5, ShilpBlockId.CHUNAR_SANDSTONE);
+      expect(world.getBlock(-5, 45, -5)).toBe(ShilpBlockId.CHUNAR_SANDSTONE);
+      expect(world.getBlock(5, 45, 5)).not.toBe(ShilpBlockId.CHUNAR_SANDSTONE);
+    });
+
+    it('treats Y outside the world as air, and refuses to edit there', () => {
+      const world = makeWorld();
+      expect(world.getBlock(0, -1, 0)).toBe(ShilpBlockId.AIR);
+      expect(world.getBlock(0, CHUNK_SIZE_Y, 0)).toBe(ShilpBlockId.AIR);
+      expect(world.setBlock(0, -1, 0, ShilpBlockId.HARAPPAN_BAKED_BRICK)).toBe(false);
+    });
+  });
+
+  describe('edits survive a chunk being unloaded and reloaded', () => {
+    // THE streaming guarantee: unloading throws chunk.voxels away, so the edit
+    // must come back from the save store's diff when the chunk regenerates.
+    it('keeps a broken block broken after its chunk streams out and back in', () => {
+      const world = makeWorld();
+      streamTo(world, 8, 8);
+
+      const y = topSolidY(world, 5, 5);
+      expect(y).toBeGreaterThan(0);
+      world.setBlock(5, y, 5, ShilpBlockId.AIR);
+
+      streamTo(world, 5000, 5000);                   // walk far away
+      expect(world.chunks.has('0,0')).toBe(false);   // really unloaded
+
+      streamTo(world, 8, 8);                         // and come back
+      expect(world.chunks.has('0,0')).toBe(true);
+      expect(world.getBlock(5, y, 5)).toBe(ShilpBlockId.AIR);
+    });
+
+    it('keeps a placed block after reload, in a negative chunk too', () => {
+      const world = makeWorld();
+      streamTo(world, -20, -20);
+      world.setBlock(-20, 50, -20, ShilpBlockId.HARAPPAN_BAKED_BRICK);
+
+      streamTo(world, 6000, -6000);
+      expect(world.chunks.has('-2,-2')).toBe(false);
+
+      streamTo(world, -20, -20);
+      expect(world.getBlock(-20, 50, -20)).toBe(ShilpBlockId.HARAPPAN_BAKED_BRICK);
+    });
+
+    it('carries edits across worlds through a saved game', () => {
+      // Save in one world, load into a brand-new one with the same seed:
+      // exactly what a page refresh does.
+      const storage = new Map();
+      const mem = { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k) };
+
+      const saveA = new ShilpSaveStore(mem);
+      const worldA = makeWorld({ saveStore: saveA });
+      streamTo(worldA, 8, 8);
+      worldA.setBlock(3, 55, 3, ShilpBlockId.CHUNAR_SANDSTONE);
+      saveA.save({ seed: worldA.seed });
+
+      const saveB = new ShilpSaveStore(mem);
+      const loaded = saveB.load();
+      const worldB = makeWorld({ saveStore: saveB, seed: loaded.seed });
+      streamTo(worldB, 8, 8);
+      expect(worldB.getBlock(3, 55, 3)).toBe(ShilpBlockId.CHUNAR_SANDSTONE);
+    });
+  });
+
+  describe('streaming', () => {
+    it('keeps the loaded set bounded no matter how far the player travels', () => {
+      const world = makeWorld({ viewDistance: 2 });
+      const limit = (2 * (2 + 1) + 1) ** 2;          // hysteresis radius R + 1
+      for (let x = 0; x <= 3000; x += 250) {
+        streamTo(world, x, 0);
+        expect(world.chunks.size).toBeLessThanOrEqual(limit);
+      }
+    });
+
+    it('builds no more than the per-frame budget', () => {
+      const world = makeWorld({ viewDistance: 3 });
+      world.updateStreaming(4000, 4000);             // a whole new area to load
+      expect(world.pendingChunkCount).toBeGreaterThan(2);
+      expect(world.processStreamingQueue()).toBeLessThanOrEqual(2);
+    });
+
+    it('loads nearest chunks first', () => {
+      const world = makeWorld({ viewDistance: 3 });
+      world.updateStreaming(4000, 4000);
+      const cx = Math.floor(4000 / CHUNK_SIZE_X);
+      const first = world._loadQueue[0];
+      expect([first.cx, first.cz]).toEqual([cx, cx]);   // the player's own chunk
+    });
+
+    it('does no streaming work while the player stays in one chunk', () => {
+      const world = makeWorld();
+      streamTo(world, 2, 2);
+      const queue = world._loadQueue;
+      world.updateStreaming(9.5, 14.2);               // still chunk (0,0)
+      expect(world._loadQueue).toBe(queue);           // untouched: early return
+    });
+  });
+
+  describe('heritage monuments cannot be broken', () => {
+    // The Ashoka Sthambha stands at local (7..8, 25..32, 7..8) of chunk (0,0),
+    // on the Harappan terrace at y = 24.
+    const PILLAR = { x: 7, y: 25, z: 7 };
+
+    it('generates the Ashoka pillar in the spawn chunk', () => {
+      const world = makeWorld();
+      expect(world.getBlock(PILLAR.x, PILLAR.y, PILLAR.z)).toBe(ShilpBlockId.ASHOKA_PILLAR_BLOCK);
+    });
+
+    it('refuses to break the pillar through the player\'s mining path', () => {
+      const world = makeWorld();
+      world.targetVoxel = {
+        ...PILLAR,
+        blockId: ShilpBlockId.ASHOKA_PILLAR_BLOCK,
+        meta: SHILP_BLOCK_REGISTRY[ShilpBlockId.ASHOKA_PILLAR_BLOCK],
+        normal: new THREE.Vector3(0, 1, 0),
+      };
+      const res = world.tryBreakTargetVoxel();
+      expect(res.success).toBe(false);
+      expect(res.wasHeritage).toBe(true);
+      expect(world.getBlock(PILLAR.x, PILLAR.y, PILLAR.z)).toBe(ShilpBlockId.ASHOKA_PILLAR_BLOCK);
+      expect(warnSpy).toHaveBeenCalled();
+    });
+
+    it('does not record a refused break as a player edit', () => {
+      const world = makeWorld();
+      world.targetVoxel = { ...PILLAR, blockId: ShilpBlockId.ASHOKA_PILLAR_BLOCK,
+        meta: SHILP_BLOCK_REGISTRY[ShilpBlockId.ASHOKA_PILLAR_BLOCK], normal: new THREE.Vector3() };
+      world.tryBreakTargetVoxel();
+      expect(world.saveStore.editCount).toBe(0);
+    });
+
+    it.each([
+      ['Ashoka Sthambha pillar', ShilpBlockId.ASHOKA_PILLAR_BLOCK],
+      ['Great Bath masonry', ShilpBlockId.MOHENJO_GREAT_BATH_BLOCK],
+      ['Bitumen mortar', ShilpBlockId.BITUMEN_MORTAR],
+    ])('canBreakVoxel refuses %s', (_name, id) => {
+      expect(canBreakVoxel(id)).toBe(false);
+    });
+
+    it('still lets ordinary blocks be mined', () => {
+      const world = makeWorld();
+      streamTo(world, 8, 8);
+      const y = topSolidY(world, 12, 12);
+      const id = world.getBlock(12, y, 12);
+      expect(SHILP_BLOCK_REGISTRY[id].isHeritage).toBe(false);
+      world.targetVoxel = { x: 12, y, z: 12, blockId: id, meta: SHILP_BLOCK_REGISTRY[id], normal: new THREE.Vector3() };
+      expect(world.tryBreakTargetVoxel().success).toBe(true);
+      expect(world.getBlock(12, y, 12)).toBe(ShilpBlockId.AIR);
+    });
+  });
+
+  describe('greedy mesher at chunk borders', () => {
+    const N = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z;
+    const idx = (x, y, z) => x + CHUNK_SIZE_X * (z + CHUNK_SIZE_Z * y);
+    const solidSlab = () => {
+      const v = new Uint8Array(N);
+      for (let y = 0; y < 4; y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) v[idx(x, y, z)] = ShilpBlockId.DECCAN_BASALT;
+      return v;
+    };
+    /** Quads lying exactly on the plane x = 16, the border between the chunks. */
+    const borderQuads = geo => {
+      const p = geo.attributes.position.array;
+      let n = 0;
+      for (let i = 0; i < p.length; i += 12) if ([0, 3, 6, 9].every(o => p[i + o] === 16)) n++;
+      return n;
+    };
+
+    it('draws no face between two solid neighbouring chunks', () => {
+      const left = solidSlab();
+      const right = solidSlab();
+      const world = (wx, wy, wz) => {
+        const v = wx < 16 ? left : right;
+        const lx = wx < 16 ? wx : wx - 16;
+        return lx >= 0 && lx < 16 && wz >= 0 && wz < 16 ? v[idx(lx, wy, wz)] : 0;
+      };
+      const faces = borderQuads(ShilpGreedyMesher.meshChunk(left, 16, 64, 16, 0, 0, world)) +
+                    borderQuads(ShilpGreedyMesher.meshChunk(right, 16, 64, 16, 16, 0, world));
+      expect(faces).toBe(0);
+    });
+
+    it('draws an exposed border face exactly once (no z-fighting duplicate)', () => {
+      const left = solidSlab();
+      const right = new Uint8Array(N);                 // open air
+      const world = (wx, wy, wz) => {
+        const v = wx < 16 ? left : right;
+        const lx = wx < 16 ? wx : wx - 16;
+        return lx >= 0 && lx < 16 && wz >= 0 && wz < 16 ? v[idx(lx, wy, wz)] : 0;
+      };
+      const faces = borderQuads(ShilpGreedyMesher.meshChunk(left, 16, 64, 16, 0, 0, world)) +
+                    borderQuads(ShilpGreedyMesher.meshChunk(right, 16, 64, 16, 16, 0, world));
+      expect(faces).toBe(1);
+    });
+  });
+});
