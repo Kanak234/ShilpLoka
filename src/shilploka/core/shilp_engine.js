@@ -91,9 +91,17 @@ export class ShilpEngine {
     this.loadedSave = this.saveStore.load();
     const worldSeed = this.loadedSave?.seed ?? randomSeed();
 
+    // 3c. View distance, in chunks, per device.
+    // WHY different: each extra ring of chunks is more terrain to generate,
+    // mesh and draw. A radius of 4 keeps 81 chunks around a desktop player; a
+    // radius of 3 keeps 49 on a phone, whose GPU and memory are far smaller.
+    // NEXT: the same number sizes the fog in initAtmosphere(), so the fog
+    // always ends exactly where the loaded world does.
+    this.viewDistance = isMobileDevice() ? 3 : 4;
+
     // 4. Procedural Voxel World (streaming, greedy meshing & Ancient Indian biomes)
     this.world = new ShilpWorld(this.scene, {
-      viewDistance: 2,
+      viewDistance: this.viewDistance,
       seed: worldSeed,
       saveStore: this.saveStore,
       // Resume streaming where the player actually is, not at the origin.
@@ -290,9 +298,37 @@ export class ShilpEngine {
    * Configures base atmospheric lighting and Indus Valley skybox backdrop.
    */
   initAtmosphere() {
-    const skyColor = new THREE.Color(0x87ceeb);
-    this.scene.background = skyColor;
-    this.scene.fog = new THREE.FogExp2(0x87ceeb, 0.008);
+    // ── Fog that hides the edge of the world ──────────────────────────────
+    // WHY: the world is only loaded to a fixed radius. Past that there is
+    // nothing, and without fog the player sees terrain end in a hard square
+    // edge against the sky.
+    //
+    // WHY linear Fog instead of the old FogExp2(0.008): exponential fog never
+    // reaches full opacity. From Three.js's formula
+    //   fogFactor = 1 - exp(-density^2 * depth^2)
+    // the old fog was only 23% opaque at 64 blocks - the world edge - so the
+    // terrain there was still 77% visible and the square edge showed clearly.
+    // Linear fog is 100% opaque at its `far` distance, which can be pinned
+    // exactly to the world's edge.
+    //
+    // THE NUMBERS. R = viewDistance * 16 is the distance, in blocks, to the
+    // edge of the loaded area. The nearest loaded edge is never closer than R
+    // to the player (even just after crossing into a new chunk, before the new
+    // row has streamed in). So:
+    //   far  = R * 0.95  -> fully opaque just BEFORE the nearest possible edge
+    //   near = R * 0.55  -> fog starts a little past half way, so the fade is
+    //                        gradual instead of a wall.
+    // Desktop (R=64):  fog 35 -> 61 blocks.   Mobile (R=48): fog 26 -> 46.
+    const R = this.world.viewDistance * 16;
+
+    // ONE shared Color object for both the sky and the fog. WHY: fog that does
+    // not exactly match the background shows as a coloured band at the
+    // horizon. Sharing the object (not copying the value) means any future
+    // day/night code only has to change this.skyColor and both follow.
+    this.skyColor = new THREE.Color(0x87ceeb);
+    this.scene.background = this.skyColor;
+    this.scene.fog = new THREE.Fog(this.skyColor, R * 0.55, R * 0.95);
+    this.scene.fog.color = this.skyColor;   // same instance, not a copy
 
     this.ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     this.scene.add(this.ambientLight);
@@ -300,6 +336,17 @@ export class ShilpEngine {
     this.sunLight = new THREE.DirectionalLight(0xfffae6, 1.15);
     this.sunLight.position.set(100, 200, 100);
     this.scene.add(this.sunLight);
+  }
+
+  /**
+   * Change the sky colour; the fog follows automatically.
+   * USED FOR: any future day/night cycle. There is none in the live game
+   * today, but the fog and background share one Color, so a caller can
+   * never desync them by updating only one.
+   * @param {number|string} color - Any value THREE.Color.set() accepts.
+   */
+  setSkyColor(color) {
+    this.skyColor.set(color);
   }
 
   /**
