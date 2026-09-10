@@ -1,5 +1,5 @@
 /**
- * Automated Verification Script for Minecraft Voxel Engine
+ * Automated Verification Script for the ShilpLoka voxel engine
  * Uses Puppeteer Core connecting to Microsoft Edge
  */
 
@@ -15,7 +15,7 @@ __mkdirSync('docs/screenshots', { recursive: true });
 const EDGE_PATH = '/usr/bin/microsoft-edge-stable';
 
 async function runVerification() {
-  console.log('--- Starting Minecraft Voxel Game Verification ---');
+  console.log('--- Starting ShilpLoka Verification ---');
 
   let browser = null;
   let vite = null;

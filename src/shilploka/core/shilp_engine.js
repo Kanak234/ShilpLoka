@@ -7,7 +7,7 @@
  * - Decoupled Glenn Fiedler dual game loop (KalaChakra) with locked 60Hz physics.
  * - Native 1:1 DPR WebGL2 rendering pipeline with Three.js.
  * - Clean cross-platform Tauri desktop packaging hooks.
- * - Pure clean-room implementation with ZERO Minecraft code or assets.
+ * - Pure clean-room implementation: all code and assets are original.
  */
 
 import * as THREE from 'three';

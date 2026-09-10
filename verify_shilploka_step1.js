@@ -210,7 +210,7 @@ async function runShilpLokaStep1Verification() {
     console.log('   - Scalable Bitmask ShilpECS Architecture');
     console.log('   - Decoupled Glenn Fiedler Fixed 60Hz Game Loop');
     console.log('   - Player, Barter NPC, Native Fauna & Monument Entities');
-    console.log('   - Clean-Room Design (Zero Minecraft Code or Assets)');
+    console.log('   - Clean-Room Design (all code and assets original)');
     console.log('   - Cross-Platform Desktop/Tauri WebGL2 Ready');
     console.log('===========================================================\n');
   } finally {
