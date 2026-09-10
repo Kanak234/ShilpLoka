@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=ShilpLoka (शिल्पलोक)
-Comment=Ancient Indian Voxel Sandbox Game
-Exec=shilploka.sh
-Icon=icons/icon.png
-Terminal=false
-Type=Application
-Categories=Game;Simulation;

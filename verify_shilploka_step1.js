@@ -7,6 +7,12 @@
 import puppeteer from 'puppeteer-core';
 import fs from 'fs';
 import path from 'path';
+// Screenshots are written to docs/screenshots/ (moved out of the repo
+// root in the fix/review-sept cleanup). The directory is created here
+// because page.screenshot() throws if it does not exist yet.
+import { mkdirSync as __mkdirSync } from 'node:fs';
+__mkdirSync('docs/screenshots', { recursive: true });
+
 
 const EDGE_PATH = '/usr/bin/microsoft-edge-stable';
 const URL = 'http://127.0.0.1:5173/shilploka.html';
@@ -194,17 +200,10 @@ async function runShilpLokaStep1Verification() {
     // -----------------------------------------------------------------
     // 6. Capture Verification Screenshot
     // -----------------------------------------------------------------
-    const screenshotPath = 'shilploka_step1_verification.png';
+    const screenshotPath = 'docs/screenshots/shilploka_step1_verification.png';
     await page.screenshot({ path: screenshotPath });
     console.log(`\n✓ Captured verification screenshot: ${screenshotPath}`);
 
-    // Copy to artifact directory
-    const artifactDir = '/home/kanak/.gemini/antigravity-cli/brain/e82db32a-fc22-4a2b-a99f-d9c8e303d0a2';
-    if (fs.existsSync(artifactDir)) {
-      const artifactScreenshot = path.join(artifactDir, 'shilploka_step1_verification.png');
-      fs.copyFileSync(screenshotPath, artifactScreenshot);
-      console.log(`✓ Copied screenshot to artifact directory: ${artifactScreenshot}`);
-    }
 
     console.log('\n===========================================================');
     console.log('🎉 SHILPLOKA STEP 1 COMPLETE & 100% VERIFIED:');

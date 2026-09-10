@@ -8,8 +8,10 @@ import fs from 'fs';
 
 const EDGE_PATH = '/usr/bin/microsoft-edge-stable';
 const URL = 'http://127.0.0.1:5173/shilploka.html';
-const SCREENSHOT_PATH = '/home/kanak/Desktop/ops/shilploka_step3_verification.png';
-const ARTIFACT_PATH = '/home/kanak/.gemini/antigravity-cli/brain/e82db32a-fc22-4a2b-a99f-d9c8e303d0a2/shilploka_step3_verification.png';
+// WHY: this was hardcoded to an absolute path on the author's machine,
+// so the script failed on every other clone. It now writes inside the
+// repo, next to the other screenshots, so `npm run verify` works on any clone.
+const SCREENSHOT_PATH = 'docs/screenshots/shilploka_step3_verification.png';
 
 async function runStep3Verification() {
   console.log('===========================================================');
@@ -232,11 +234,11 @@ async function runStep3Verification() {
   await new Promise(r => setTimeout(r, 600));
 
   // Capture screenshot proof
+  // docs/screenshots/ may not exist on a fresh clone; puppeteer throws if not.
+  fs.mkdirSync('docs/screenshots', { recursive: true });
   await page.screenshot({ path: SCREENSHOT_PATH });
   console.log(`\n✓ Captured verification screenshot: ${SCREENSHOT_PATH}`);
 
-  fs.copyFileSync(SCREENSHOT_PATH, ARTIFACT_PATH);
-  console.log(`✓ Copied screenshot to artifact directory: ${ARTIFACT_PATH}`);
 
   await browser.close();
 

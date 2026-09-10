@@ -5,6 +5,12 @@
 
 import puppeteer from 'puppeteer-core';
 import { spawn } from 'child_process';
+// Screenshots are written to docs/screenshots/ (moved out of the repo
+// root in the fix/review-sept cleanup). The directory is created here
+// because page.screenshot() throws if it does not exist yet.
+import { mkdirSync as __mkdirSync } from 'node:fs';
+__mkdirSync('docs/screenshots', { recursive: true });
+
 
 const EDGE_PATH = '/usr/bin/microsoft-edge-stable';
 
@@ -227,7 +233,7 @@ async function runVerification() {
 
     // 11. Capture Screenshot of Live Gameplay
     console.log('11. Capturing in-game gameplay screenshot...');
-    await page.screenshot({ path: 'gameplay_verification.png' });
+    await page.screenshot({ path: 'docs/screenshots/gameplay_verification.png' });
     console.log('✓ Screenshot saved to gameplay_verification.png');
 
     // 12. Open Inventory Modal and Capture Screenshot
@@ -236,7 +242,7 @@ async function runVerification() {
       window.__GAME__.inventory.openModal('player');
     });
     await new Promise((r) => setTimeout(r, 400));
-    await page.screenshot({ path: 'inventory_verification.png' });
+    await page.screenshot({ path: 'docs/screenshots/inventory_verification.png' });
     console.log('✓ Screenshot saved to inventory_verification.png');
 
     console.log('\n=============================================');
