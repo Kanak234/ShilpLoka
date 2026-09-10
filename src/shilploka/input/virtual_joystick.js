@@ -95,6 +95,10 @@ export class VirtualTouchControls {
       <div class="mobile-quick-toolbar">
         <button id="touch-btn-barter" class="mobile-mini-btn">🏺 विनिमय (Barter)</button>
         <button id="touch-btn-craft" class="mobile-mini-btn">☸ निर्माण (Craft)</button>
+        <!-- New World on touch devices. WHY a second button: shilploka.css
+             hides the whole desktop toolbar at <=920px and on any coarse
+             pointer, so without this a phone player could never start over. -->
+        <button id="touch-btn-new-world" class="mobile-mini-btn">🌱 नया लोक</button>
       </div>
     `;
 
@@ -294,6 +298,18 @@ export class VirtualTouchControls {
         e.preventDefault();
         e.stopPropagation();
         if (this.engine?.craftingModal) this.engine.craftingModal.toggle();
+      }, { passive: false });
+    }
+
+    // New World (touch). Delegates to the engine, which shows the confirm
+    // dialog, stops autosave, clears the save and reloads -- the exact same
+    // path as the desktop button, so the two can never behave differently.
+    const newWorldBtn = document.getElementById('touch-btn-new-world');
+    if (newWorldBtn) {
+      newWorldBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.engine?.startNewWorld) this.engine.startNewWorld();
       }, { passive: false });
     }
   }

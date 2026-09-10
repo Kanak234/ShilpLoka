@@ -18,6 +18,7 @@ import { ShilpChunk, CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z } from './shilp_ch
 import { ShilpOctree } from './shilp_octree.js';
 import { OrganicTreeGenerator } from './organic_trees.js';
 import { ShilpGraph } from './shilp_graph.js';
+import { randomSeed } from '../core/shilp_save.js';
 
 export const SEA_LEVEL = 18;
 
@@ -28,7 +29,19 @@ export class ShilpWorld {
    */
   constructor(scene, config = {}) {
     this.scene = scene;
-    this.seed = config.seed ?? 1008;
+    // WHY random: the seed used to default to the fixed number 1008, so every
+    // player got the identical map. The engine now passes either the saved
+    // world's seed (to regenerate the same terrain) or a fresh random one.
+    this.seed = config.seed ?? randomSeed();
+
+    /**
+     * Save store holding the player's edits (see core/shilp_save.js).
+     * USED FOR: re-applying edits whenever a chunk is generated, and recording
+     * every edit made through setBlock(). Optional -- tests and tools can build
+     * a world without persistence.
+     * @type {import('../core/shilp_save.js').ShilpSaveStore|null}
+     */
+    this.saveStore = config.saveStore ?? null;
     this.viewDistance = config.viewDistance ?? 2; // Radius in chunks (5x5 grid = 25 chunks)
     this.noise = new PerlinNoise(this.seed);
 
@@ -52,8 +65,11 @@ export class ShilpWorld {
     this.selectionBox = this._createSelectionOutline();
     this.scene.add(this.selectionBox);
 
-    // Initial chunk generation around origin
-    this.updateStreaming(0, 0, true);
+    // Initial chunk generation. WHY a configurable centre: with saves, the
+    // player may resume far from the origin; generating around (0,0) first
+    // would build chunks they are nowhere near while their own area is empty.
+    const start = config.initialCenter ?? { x: 0, z: 0 };
+    this.updateStreaming(start.x, start.z, true);
   }
 
   /**
@@ -93,6 +109,15 @@ export class ShilpWorld {
     const lx = ((wx % CHUNK_SIZE_X) + CHUNK_SIZE_X) % CHUNK_SIZE_X;
     const lz = ((wz % CHUNK_SIZE_Z) + CHUNK_SIZE_Z) % CHUNK_SIZE_Z;
     chunk.setBlock(lx, wy, lz, blockId);
+
+    // SAVE HOOK. WHY here: setBlock() is the only path player actions take
+    // (tryBreakTargetVoxel / tryPlaceAdjacentVoxel). World generation writes
+    // to chunks directly and never passes through here, so the save records
+    // exactly the player's edits and nothing procedural.
+    // NEXT: the edit is written to storage on the next autosave.
+    if (this.saveStore) {
+      this.saveStore.recordEdit(cx, cz, chunk.getIndex(lx, wy, lz), blockId);
+    }
 
     // Rebuild chunk mesh immediately
     chunk.buildMesh(this.material);
@@ -239,6 +264,33 @@ export class ShilpWorld {
   }
 
   /**
+   * Create one chunk: generate terrain, re-apply the player's saved edits,
+   * build its mesh and register it.
+   *
+   * WHY the order matters: edits are applied AFTER generation (so they
+   * overwrite the procedural blocks) but BEFORE meshing (so the very first
+   * mesh already shows the player's buildings, with no flicker).
+   *
+   * USED BY: chunk streaming. It is the single place a chunk comes into
+   * existence, which is why edits survive a chunk being unloaded and loaded
+   * again - they are re-applied here every time.
+   *
+   * @returns {ShilpChunk}
+   */
+  _loadChunk(cx, cz) {
+    const chunk = new ShilpChunk(cx, cz);
+    this.generateChunkData(chunk);
+    if (this.saveStore) this.saveStore.applyToChunk(chunk);
+    const mesh = chunk.buildMesh(this.material);
+    if (mesh) {
+      this.scene.add(mesh);
+    }
+    this.chunks.set(this.getChunkKey(cx, cz), chunk);
+    this.octree.registerChunk(chunk);
+    return chunk;
+  }
+
+  /**
    * Updates streaming around player position.
    */
   updateStreaming(playerWorldX, playerWorldZ, forceRebuild = false) {
@@ -257,14 +309,7 @@ export class ShilpWorld {
         activeKeys.add(key);
 
         if (!this.chunks.has(key)) {
-          const chunk = new ShilpChunk(cx, cz);
-          this.generateChunkData(chunk);
-          const mesh = chunk.buildMesh(this.material);
-          if (mesh) {
-            this.scene.add(mesh);
-          }
-          this.chunks.set(key, chunk);
-          this.octree.registerChunk(chunk);
+          this._loadChunk(cx, cz);
           didLoadNewChunks = true;
         } else if (forceRebuild) {
           const chunk = this.chunks.get(key);

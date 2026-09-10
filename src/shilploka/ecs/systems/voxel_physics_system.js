@@ -209,8 +209,8 @@ export class VoxelPhysicsSystem {
     const origZ = pos.z;
 
     // Normal movement trial without step-up
-    const normalX = this._testHorizontalAxis(pos.x, pos.y, pos.z, targetDx, 0);
-    const normalZ = this._testHorizontalAxis(normalX, pos.y, pos.z, 0, targetDz);
+    const normalX = this._testHorizontalAxis(pos.x, pos.y, pos.z, targetDx, 0, 'x');
+    const normalZ = this._testHorizontalAxis(normalX, pos.y, pos.z, 0, targetDz, 'z');
     const normalDistSq = (normalX - origX) ** 2 + (normalZ - origZ) ** 2;
     const targetDistSq = targetDx ** 2 + targetDz ** 2;
 
@@ -224,8 +224,8 @@ export class VoxelPhysicsSystem {
       const elevatedY = pos.y + this.stepHeight;
       // Test if space above is clear
       if (!this._isCollidingAt(origX, elevatedY, origZ)) {
-        stepX = this._testHorizontalAxis(origX, elevatedY, origZ, targetDx, 0);
-        stepZ = this._testHorizontalAxis(stepX, elevatedY, origZ, 0, targetDz);
+        stepX = this._testHorizontalAxis(origX, elevatedY, origZ, targetDx, 0, 'x');
+        stepZ = this._testHorizontalAxis(stepX, elevatedY, origZ, 0, targetDz, 'z');
 
         // Step back down onto obstacle surface
         let groundedStepY = elevatedY;
@@ -257,15 +257,41 @@ export class VoxelPhysicsSystem {
     }
   }
 
-  _testHorizontalAxis(px, py, pz, dx, dz) {
-    const target = (dx !== 0) ? px + dx : pz + dz;
-    const testX = (dx !== 0) ? target : px;
-    const testZ = (dz !== 0) ? target : pz;
+  /**
+   * Try moving the player along ONE horizontal axis; return the new coordinate
+   * on that axis, or the old one if the move would collide.
+   *
+   * BUG FIXED HERE: this used to work out which axis it was testing from the
+   * delta itself -- `(dx !== 0) ? <X axis> : <Z axis>`. But the X call passes
+   * dx = velocity.x * delta, which is exactly 0 whenever the player is not
+   * moving sideways. The function then took the Z branch and returned the
+   * player's Z coordinate, which the caller assigned to pos.x.
+   *
+   * Effect in the game: every physics frame without X velocity, x was
+   * overwritten with z. Standing still or walking straight north/south dragged
+   * the player onto the x == z diagonal. It went unnoticed only because the
+   * spawn point (4, 26, 4) happens to have x == z. Restoring a saved position
+   * (x != z) is what exposed it.
+   *
+   * FIX: the caller now states the axis. A zero delta is a normal "not moving
+   * on this axis" case and returns that axis's own coordinate unchanged.
+   *
+   * @param {'x'|'z'} axis - Which coordinate this call is moving and returns.
+   * @returns {number} The resolved coordinate on `axis`.
+   */
+  _testHorizontalAxis(px, py, pz, dx, dz, axis) {
+    const current = axis === 'x' ? px : pz;
+    const delta = axis === 'x' ? dx : dz;
+    if (delta === 0) return current;          // not moving on this axis
+
+    const target = current + delta;
+    const testX = axis === 'x' ? target : px;
+    const testZ = axis === 'z' ? target : pz;
 
     if (!this._isCollidingAt(testX, py, testZ)) {
       return target;
     }
-    return (dx !== 0) ? px : pz; // Blocked
+    return current; // Blocked: stay where we are on this axis
   }
 
   _isCollidingAt(px, py, pz) {

@@ -1071,3 +1071,50 @@ kbd {
 }
 
 
+
+/* ==========================================================================
+   Save system UI  (added with core/shilp_save.js)
+   WHY: the player needs to know their world is being kept - and to be told
+   when it is NOT (storage full or blocked). Styled with the same gold border
+   and terracotta palette as the monument banner so it reads as part of the
+   game, not a browser notification.
+   ========================================================================== */
+
+/* "New World" is destructive, so it is visually quieter than the other
+   toolbar actions: it should be findable, not tempting. */
+.toolbar-btn-quiet {
+  border-color: rgba(212, 175, 55, 0.45);
+  color: rgba(247, 237, 226, 0.78);
+}
+
+/* Bottom-left, away from the hotbar and the monument banner, so a save never
+   covers anything the player is looking at. */
+.save-toast {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  background: rgba(28, 22, 19, 0.92);
+  color: #f7ede2;
+  border: 1px solid #d4af37;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 240;
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+/* Warning variant: storage near its limit, or the save failed outright. */
+.save-toast.warn {
+  background: rgba(184, 93, 63, 0.95);
+}
+
+.save-toast.hidden {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-toast { transition: none; }
+}

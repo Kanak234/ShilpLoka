@@ -36,6 +36,7 @@ import { ShilpInventory, SHILP_ITEMS } from '../inventory/shilp_inventory.js';
 import { ShilpWorld } from '../world/shilp_world.js';
 import { ShilpBlockId } from '../world/voxel_constants.js';
 import { isMobileDevice, VirtualTouchControls } from '../input/virtual_joystick.js';
+import { ShilpSaveStore, randomSeed } from './shilp_save.js';
 
 
 export class ShilpEngine {
@@ -79,8 +80,27 @@ export class ShilpEngine {
     this.merchantStock = null;
     this.merchantId = null;
 
+    // 3b. SAVE SYSTEM - must run BEFORE the world is created.
+    // WHY the ordering: the world regenerates terrain from its seed, so it has
+    // to be built with the SAVED seed to reproduce the same land the player's
+    // edits were made on. The save store also has to exist first so each chunk
+    // can have its edits re-applied the moment it is generated.
+    // NEXT: the loaded save is used again in step 6b to restore the player,
+    // inventory and merchant, once those objects exist.
+    this.saveStore = new ShilpSaveStore();
+    this.loadedSave = this.saveStore.load();
+    const worldSeed = this.loadedSave?.seed ?? randomSeed();
+
     // 4. Procedural Voxel World (Octrees, Greedy Meshing & Ancient Indian Biomes)
-    this.world = new ShilpWorld(this.scene, { viewDistance: 2, seed: 1008 });
+    this.world = new ShilpWorld(this.scene, {
+      viewDistance: 2,
+      seed: worldSeed,
+      saveStore: this.saveStore,
+      // Resume streaming where the player actually is, not at the origin.
+      initialCenter: this.loadedSave?.player
+        ? { x: this.loadedSave.player.x, z: this.loadedSave.player.z }
+        : { x: 0, z: 0 },
+    });
     this.cullingMetrics = null;
 
     // 5. Initial Indus Valley Atmosphere & Lighting
@@ -90,6 +110,10 @@ export class ShilpEngine {
     this.spawnPlayerEntity();
     this.spawnDemonstrationHeritageMonuments();
     this.spawnDemonstrationFaunaAndNPCs();
+
+    // 6b. Restore saved player / inventory / merchant state.
+    // WHY here: these objects only exist after step 6 spawned them.
+    this._restoreFromSave(this.loadedSave);
 
     // 7. Register ECS Systems
     this.registerSystems();
@@ -185,6 +209,9 @@ export class ShilpEngine {
     if (isMobileDevice()) {
       this.enableTouchControls();
     }
+
+    // 17. Autosave, New World button and the save toast.
+    this._initSaveSystem();
 
     // Expose engine instance for telemetry and programmatic testing
     window.__SHILPLOKA__ = this;
@@ -492,11 +519,195 @@ export class ShilpEngine {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════ SAVE SYSTEM
+
+  /**
+   * Gather everything that goes into a save (except the block edits, which
+   * the save store already holds).
+   * USED BY: saveGame(). NEXT: ShilpSaveStore.serialize() turns it into JSON.
+   */
+  _collectSaveState() {
+    const transform = this.ecs.getComponent(this.playerEntityId, 'Transform');
+    const rig = this.ecs.getComponent(this.playerEntityId, 'CameraRig');
+    return {
+      seed: this.world.seed,
+      player: transform
+        ? {
+            x: transform.position.x,
+            y: transform.position.y,
+            z: transform.position.z,
+            yaw: rig?.yaw ?? 0,
+            pitch: rig?.pitch ?? 0,
+          }
+        : null,
+      inventory: {
+        activeSlotIndex: this.inventory.activeSlotIndex,
+        // Copy the slots so later inventory changes cannot mutate the snapshot.
+        slots: this.inventory.slots.map(s => (s ? { itemId: s.itemId, count: s.count } : null)),
+      },
+      // Shallow copy for the same reason.
+      merchantStock: this.merchantStock ? { ...this.merchantStock } : null,
+    };
+  }
+
+  /**
+   * Put a loaded save back into the running game.
+   * CALLED ONCE at startup, after the player, inventory and merchant exist.
+   *
+   * @param {Object|null} save - Output of ShilpSaveStore.load(); null = new world.
+   */
+  _restoreFromSave(save) {
+    if (!save) return;
+
+    // Player position AND previousPosition. WHY both: the camera interpolates
+    // between the two. Restoring only `position` would make the view visibly
+    // glide from the spawn point to the saved spot over the first frames.
+    const transform = this.ecs.getComponent(this.playerEntityId, 'Transform');
+    if (transform && save.player) {
+      transform.position.set(save.player.x, save.player.y, save.player.z);
+      transform.previousPosition.copy(transform.position);
+      // Drop any momentum from the spawn frame.
+      const kin = this.ecs.getComponent(this.playerEntityId, 'Kinematics');
+      if (kin) kin.velocity.set(0, 0, 0);
+    }
+    const rig = this.ecs.getComponent(this.playerEntityId, 'CameraRig');
+    if (rig && save.player) {
+      rig.yaw = save.player.yaw ?? rig.yaw;
+      rig.pitch = save.player.pitch ?? rig.pitch;
+    }
+
+    // Inventory: rebuilt through setSlot() so every saved stack is re-validated
+    // against the item registry and max stack sizes (a corrupted or edited save
+    // cannot inject an unknown item or an oversized stack).
+    if (save.inventory?.slots) {
+      for (let i = 0; i < this.inventory.totalSlots; i++) {
+        const slot = save.inventory.slots[i];
+        this.inventory.setSlot(i, slot?.itemId ?? null, slot?.count ?? 0);
+      }
+      this.inventory.setActiveSlot(save.inventory.activeSlotIndex ?? 0);
+    }
+
+    // Merchant stock: mutated IN PLACE, never replaced. WHY: the same object is
+    // shared by reference with the barter modal and the NPC's ECS component.
+    // Assigning a new object here would leave the modal trading from a stale
+    // copy and the barter changes would silently stop being saved.
+    if (save.merchantStock && this.merchantStock) {
+      Object.assign(this.merchantStock, save.merchantStock);
+    }
+  }
+
+  /**
+   * Write the game to storage and tell the player how it went.
+   * CALLED BY: the 30 s autosave timer, the tab going hidden, page unload.
+   *
+   * @param {{quiet?: boolean}} [opts] - quiet: no "Saved" toast. Used on
+   *   unload, where the page is closing and there is no one to show it to.
+   * @returns {{ok:boolean, bytes:number, tooLarge:boolean}}
+   */
+  saveGame({ quiet = false } = {}) {
+    const result = this.saveStore.save(this._collectSaveState());
+    if (quiet) return result;
+
+    if (!result.ok) {
+      this._showSaveToast('⚠ Could not save — browser storage is full or blocked', true);
+    } else if (result.tooLarge) {
+      const mb = (result.bytes / (1024 * 1024)).toFixed(1);
+      this._showSaveToast(`⚠ Saved, but the world is large (${mb} MB) — near the browser limit`, true);
+    } else {
+      this._showSaveToast('Saved ✓');
+    }
+    return result;
+  }
+
+  /**
+   * Autosave triggers, New World button, and toast element lookup.
+   * CALLED ONCE from the constructor.
+   */
+  _initSaveSystem() {
+    this.saveToast = document.getElementById('save-toast');
+    this.saveToastTimer = null;
+
+    if (!this.saveStore.available) {
+      // Private browsing or storage disabled: say so once instead of
+      // pretending to save every 30 seconds.
+      this._showSaveToast('⚠ Saving is unavailable in this browser mode', true);
+      return;
+    }
+
+    // (a) Every 30 s. WHY 30: frequent enough that a crash loses little work,
+    // rare enough that the JSON.stringify cost is never felt.
+    this.autosaveInterval = setInterval(() => this.saveGame(), 30_000);
+
+    // (b) When the tab is hidden. WHY: on mobile, switching apps or locking
+    // the screen often KILLS the page without ever firing beforeunload.
+    // visibilitychange is the last event such a page reliably gets.
+    this.handleVisibility = () => {
+      if (document.visibilityState === 'hidden') this.saveGame({ quiet: true });
+    };
+    document.addEventListener('visibilitychange', this.handleVisibility);
+
+    // (c) On close / refresh on desktop.
+    this.handleBeforeUnload = () => this.saveGame({ quiet: true });
+    window.addEventListener('beforeunload', this.handleBeforeUnload);
+
+    // New World: destructive, so it always asks first.
+    const newWorldBtn = document.getElementById('new-world-btn');
+    if (newWorldBtn) {
+      newWorldBtn.addEventListener('click', () => this.startNewWorld());
+    }
+  }
+
+  /**
+   * Discard the saved world and reload into a fresh random seed.
+   * WHY a page reload rather than rebuilding in place: the world, every chunk
+   * mesh, the ECS entities and the octree would all need tearing down. A
+   * reload does that completely and cannot leave half-disposed state behind.
+   */
+  startNewWorld() {
+    const ok = window.confirm(
+      'Start a new world?\n\nYour current world and everything you have built ' +
+      'in it will be permanently deleted.'
+    );
+    if (!ok) return;
+
+    // Stop the autosave and unload handlers first, or they would immediately
+    // write the OLD world back into storage during the reload.
+    clearInterval(this.autosaveInterval);
+    window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    document.removeEventListener('visibilitychange', this.handleVisibility);
+
+    this.saveStore.clear();
+    window.location.reload();
+  }
+
+  /**
+   * Show the save toast briefly.
+   * @param {string} text
+   * @param {boolean} [warn=false] - Terracotta warning style.
+   */
+  _showSaveToast(text, warn = false) {
+    if (!this.saveToast) return;
+    this.saveToast.textContent = text;
+    this.saveToast.classList.toggle('warn', warn);
+    this.saveToast.classList.remove('hidden');
+    if (this.saveToastTimer) clearTimeout(this.saveToastTimer);
+    // Warnings stay up longer: they need reading, "Saved ✓" only a glance.
+    this.saveToastTimer = setTimeout(
+      () => this.saveToast.classList.add('hidden'),
+      warn ? 6000 : 1600
+    );
+  }
+
   /**
    * Cleanly disposes engine resources, ECS tables, and terminates loops.
    */
   destroy() {
     this.timeWheel.stop();
+    // Stop autosaving; leaving these registered would keep writing to storage
+    // from a destroyed engine.
+    if (this.autosaveInterval) clearInterval(this.autosaveInterval);
+    if (this.handleVisibility) document.removeEventListener('visibilitychange', this.handleVisibility);
+    if (this.handleBeforeUnload) window.removeEventListener('beforeunload', this.handleBeforeUnload);
     this.input.unbind_listeners();
     window.removeEventListener('resize', this.handleResize);
     if (this.handleKeyDown) window.removeEventListener('keydown', this.handleKeyDown);

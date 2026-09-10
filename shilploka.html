@@ -28,7 +28,16 @@
     <button id="crafting-toggle-btn" class="toolbar-btn">
       <span class="btn-icon">☸</span> निर्माण पीठ (Crafting) <kbd>C</kbd>
     </button>
+    <!-- New World: throws away the saved world and starts a fresh random seed.
+         Wired in ShilpEngine._initSaveSystem(); always asks for confirmation. -->
+    <button id="new-world-btn" class="toolbar-btn toolbar-btn-quiet" type="button">
+      <span class="btn-icon">🌱</span> नया लोक (New World)
+    </button>
   </div>
+
+  <!-- Save toast: shows "Saved ✓" after an autosave, or a warning when the
+       save is near the browser's storage limit. Driven by ShilpEngine. -->
+  <div id="save-toast" class="save-toast hidden" role="status" aria-live="polite"></div>
 
   <!-- Ancient Indian Vastu & ECS Telemetry HUD -->
   <div id="hud-overlay" class="ancient-hud">
