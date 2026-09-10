@@ -91,7 +91,7 @@ export class ShilpEngine {
     this.loadedSave = this.saveStore.load();
     const worldSeed = this.loadedSave?.seed ?? randomSeed();
 
-    // 4. Procedural Voxel World (Octrees, Greedy Meshing & Ancient Indian Biomes)
+    // 4. Procedural Voxel World (streaming, greedy meshing & Ancient Indian biomes)
     this.world = new ShilpWorld(this.scene, {
       viewDistance: 2,
       seed: worldSeed,
@@ -445,13 +445,18 @@ export class ShilpEngine {
    * @param {number} alpha - Fixed-step interpolation factor [0.0, 1.0).
    */
   _process(delta, alpha) {
-    // 1. Dynamic Chunk Streaming around active player position
+    // 1. Chunk streaming around the player.
+    //    updateStreaming() is cheap to call every frame: it returns at once
+    //    unless the player has crossed into a new chunk.
+    //    processStreamingQueue() then builds at most two chunks, so walking
+    //    into new terrain never stalls a frame.
     const transform = this.ecs.getComponent(this.playerEntityId, 'Transform');
     if (transform) {
       this.world.updateStreaming(transform.position.x, transform.position.z);
     }
+    this.world.processStreamingQueue();
 
-    // 2. Hierarchical Octree Frustum Culling O(log N)
+    // 2. Frustum culling: hide chunks outside the camera's view.
     this.cullingMetrics = this.world.cullFrustum(this.camera);
 
     // 3. Fast Amanatides-Woo Voxel Traversal for block targeting
@@ -660,7 +665,7 @@ export class ShilpEngine {
   /**
    * Discard the saved world and reload into a fresh random seed.
    * WHY a page reload rather than rebuilding in place: the world, every chunk
-   * mesh, the ECS entities and the octree would all need tearing down. A
+   * mesh, the ECS entities and the streaming queues would all need tearing down. A
    * reload does that completely and cannot leave half-disposed state behind.
    */
   startNewWorld() {

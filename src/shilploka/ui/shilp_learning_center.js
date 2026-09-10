@@ -76,12 +76,19 @@ Voxel sandbox games mein sabse bada lag GPU draw calls aur fill-rate ki wajah se
 - **Solution (Octree Spatial Partitioning):**
   Octree pure 3D space ko recursively **8 sub-octants** (North-East-Top, North-West-Bottom, etc.) mein divide karta hai.
   Camera ka view frustum jab kisi parent node ko intersect nahi karta, toh us pure subtree ke sabhi chunks ko $O(\\log N)$ time mein ek saath cull kar diya jata hai!
-  - **Result:** ShilpLoka mein **68% to 69% chunks actively cull** ho jate hain, jisse GPU draw calls 70% gir jate hain aur FPS 60+ locked rehta hai!
+  - **Lekin ek zaroori sabak (An important lesson):** Octree tab kaam aata hai jab objects **hazaaron** mein hon.
+    ShilpLoka mein player ke aas-paas sirf ~81 chunks load rehte hain. Itne kam chunks ke liye har chunk ko seedhe
+    frustum se test karna (81 box checks, kuch microseconds) octree se **tez bhi hai aur sahi bhi**.
+    Octree mein ek chunk jo do octants ki seema par pada ho, sirf ek octant mein store hota tha - aur jab woh octant
+    screen se bahar hota, toh chunk dikhne ke bawajood gayab ho jata tha. Isliye ShilpLoka ab har chunk ka seedha
+    frustum test karta hai. **Sahi data structure problem ke size se chuna jata hai, naam se nahi.**
     `,
-    codeSnippet: `// Hierarchical Branch Frustum Culling
-if (!frustum.intersectsBox(this.box)) {
-  this._cullAllSubtree(culledSet); // Culls thousands of voxels in O(1)
-  return;
+    codeSnippet: `// Octree idea: skip a whole branch at once (worth it for thousands of objects)
+if (!frustum.intersectsBox(node.box)) { cullSubtree(node); return; }
+
+// What ShilpLoka actually does for ~81 chunks: test each one directly
+for (const chunk of loadedChunks) {
+  chunk.mesh.visible = frustum.intersectsBox(chunk.aabb);
 }`,
   },
   {
