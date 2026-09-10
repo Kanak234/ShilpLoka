@@ -51,3 +51,9 @@ android/build/
 android/app/build/
 android/local.properties
 android/.idea/
+
+# The game bundle copied INTO the Android project by `npm run build:android`.
+# It is a build output exactly like dist/index.html. A committed copy goes
+# stale the moment the game changes -- the one that was committed here predated
+# the save system -- so it is regenerated on every Android build instead.
+android/app/src/main/assets/public/

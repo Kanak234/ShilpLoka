@@ -6,6 +6,7 @@
 import puppeteer from 'puppeteer-core';
 import fs from 'fs';
 import path from 'path';
+import { packAll } from './pack_icons.js';
 
 const EDGE_PATH = '/usr/bin/microsoft-edge-stable';
 const ROOT_DIR = path.resolve(import.meta.dirname, '..');
@@ -80,9 +81,12 @@ async function generateIcons() {
     console.log(`✓ Generated icon: ${outPath} (${s.width}x${s.height})`);
   }
 
-  // Copy icon.png to icon.ico and icon.icns as fallback binary containers
-  fs.copyFileSync(path.join(ICONS_DIR, '32x32.png'), path.join(ICONS_DIR, 'icon.ico'));
-  fs.copyFileSync(path.join(ICONS_DIR, 'icon.png'), path.join(ICONS_DIR, 'icon.icns'));
+  // Build REAL .ico / .icns containers around the PNGs just rendered.
+  // WHY: this used to copy a PNG and rename it to .ico / .icns. The files
+  // were still PNGs (`file` said so), so Windows and macOS could not use them,
+  // and Tauri - which validates the formats named in tauri.conf.json - would
+  // have rejected them in any native build. See scripts/pack_icons.js.
+  packAll(ICONS_DIR);
 
   await browser.close();
   console.log('All desktop & mobile icons successfully generated.');

@@ -47,11 +47,21 @@ try {
   process.exit(1);
 }
 
-// 4. Verify Archive
+// 4. Verify the archive -- actually check it, don't just say so.
+// WHY: itch.io serves index.html from the ROOT of the uploaded zip. If it ends
+// up in a subfolder (e.g. "dist/index.html") the page shows a blank frame. This
+// line used to print "index.html placed at root" without looking; it now reads
+// the zip's table of contents and fails the build if that is not true.
+const entries = execSync(`unzip -Z1 "${ZIP_OUT}"`, { encoding: 'utf8' })
+  .split('\n').map(e => e.trim()).filter(Boolean);
+if (!entries.includes('index.html')) {
+  console.error(`❌ index.html is not at the root of the zip. Entries: ${entries.join(', ')}`);
+  process.exit(1);
+}
 const stats = fs.statSync(ZIP_OUT);
 const sizeKb = (stats.size / 1024).toFixed(1);
 console.log(`\n✓ Successfully created Itch.io Web Bundle: ${ZIP_OUT}`);
 console.log(`  Package Size: ${sizeKb} KB`);
-console.log('  Verification: index.html placed at root of archive.');
+console.log(`  Verified: index.html is at the root (${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}).`);
 console.log('  Ready for direct upload to https://itch.io/game/new (Kind of project: HTML)');
 console.log('===========================================================');
