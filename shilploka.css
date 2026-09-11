@@ -1103,6 +1103,10 @@ kbd {
   z-index: 240;
   pointer-events: none;
   transition: opacity 0.35s ease, transform 0.35s ease;
+  /* The unreadable-save warning is two sentences: wrap it instead of letting
+     it run off a phone screen. */
+  max-width: min(460px, calc(100vw - 36px));
+  line-height: 1.4;
 }
 
 /* Warning variant: storage near its limit, or the save failed outright. */
@@ -1117,4 +1121,12 @@ kbd {
 
 @media (prefers-reduced-motion: reduce) {
   .save-toast { transition: none; }
+}
+
+/* On narrow or touch screens the hotbar drops to the bottom edge (about
+   10-70 px up), so the toast sits just above it; a wrapped two-line warning
+   would otherwise cover the hotbar slots. Placed AFTER the base rule so it
+   wins at equal specificity. */
+@media (max-width: 920px), (pointer: coarse) {
+  .save-toast { bottom: 84px; }
 }

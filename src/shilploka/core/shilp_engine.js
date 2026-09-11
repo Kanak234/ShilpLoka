@@ -660,7 +660,11 @@ export class ShilpEngine {
     const result = this.saveStore.save(this._collectSaveState());
     if (quiet) return result;
 
-    if (!result.ok) {
+    if (!result.ok && this.saveStore.writeBlocked) {
+      // Saving is paused ON PURPOSE: the slot holds an unreadable save that
+      // could not be backed up, and writing would destroy it (see load()).
+      this._showSaveToast('⚠ Not saved — protecting your old save. Use 🌱 New World to start saving again', true);
+    } else if (!result.ok) {
       this._showSaveToast('⚠ Could not save — browser storage is full or blocked', true);
     } else if (result.tooLarge) {
       const mb = (result.bytes / (1024 * 1024)).toFixed(1);
@@ -686,9 +690,29 @@ export class ShilpEngine {
       return;
     }
 
+    // A save existed but could not be opened (damaged, or from a newer build).
+    // Tell the player what happened and where their data went, instead of
+    // silently starting a new world over it. The explanation is long, so it
+    // stays up for 12 s.
+    const issue = this.saveStore.loadIssue;
+    if (issue) {
+      const what = issue.reason === 'newer'
+        ? `Your save is from a newer version of ShilpLoka (v${issue.version}) and can't be opened here.`
+        : "Your save couldn't be read (it may be damaged).";
+      const where = issue.backupKey
+        ? ' It was kept safely as a backup; this is a new world.'
+        : ' Browser storage is full, so it could not be backed up: saving is paused to protect it. 🌱 New World deletes it and starts saving again.';
+      this._showSaveToast(`⚠ ${what}${where}`, true, 12_000);
+    }
+
     // (a) Every 30 s. WHY 30: frequent enough that a crash loses little work,
     // rare enough that the JSON.stringify cost is never felt.
-    this.autosaveInterval = setInterval(() => this.saveGame(), 30_000);
+    // quiet while writeBlocked: the startup warning already explained why
+    // nothing is being saved; repeating it every 30 s would be noise.
+    this.autosaveInterval = setInterval(
+      () => this.saveGame({ quiet: this.saveStore.writeBlocked }),
+      30_000
+    );
 
     // (b) When the tab is hidden. WHY: on mobile, switching apps or locking
     // the screen often KILLS the page without ever firing beforeunload.
@@ -736,8 +760,9 @@ export class ShilpEngine {
    * Show the save toast briefly.
    * @param {string} text
    * @param {boolean} [warn=false] - Terracotta warning style.
+   * @param {number} [ms] - How long to show it. Defaults: 6 s warn, 1.6 s ok.
    */
-  _showSaveToast(text, warn = false) {
+  _showSaveToast(text, warn = false, ms = warn ? 6000 : 1600) {
     if (!this.saveToast) return;
     this.saveToast.textContent = text;
     this.saveToast.classList.toggle('warn', warn);
@@ -746,7 +771,7 @@ export class ShilpEngine {
     // Warnings stay up longer: they need reading, "Saved ✓" only a glance.
     this.saveToastTimer = setTimeout(
       () => this.saveToast.classList.add('hidden'),
-      warn ? 6000 : 1600
+      ms
     );
   }
 

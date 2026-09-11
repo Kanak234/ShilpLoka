@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  SAVE_MIGRATIONS,
   SAVE_VERSION,
   SAVE_WARN_BYTES,
   ShilpSaveStore,
@@ -153,6 +154,82 @@ describe('ShilpSaveStore', () => {
       store.clear();
       expect(store.editCount).toBe(0);
       expect(new ShilpSaveStore(storage).load()).toBeNull();
+    });
+  });
+
+  describe('protecting saves this build cannot read', () => {
+    // WHY this block exists: before this fix, load() returned null for an
+    // unreadable save, the game started a new world, and its first autosave
+    // OVERWROTE the old save for good. Each test below would fail on that code.
+    const NEWER = JSON.stringify({ version: SAVE_VERSION + 1, seed: 7, chunks: { '0,0': { 1: 3 } }, extra: 'v2 field' });
+    const CORRUPT = '{"version":1,"seed":7,"chunks":{"0,0":{"1":3';   // truncated mid-write
+
+    it.each([
+      ['a save from a newer version', NEWER, 'newer', SAVE_VERSION + 1],
+      ['a corrupt (truncated) save', CORRUPT, 'corrupt', null],
+      ['a save with no version field', JSON.stringify({ seed: 7, chunks: {} }), 'invalid', null],
+    ])('%s is backed up byte-for-byte before a new world starts', (_label, raw, reason, version) => {
+      storage.setItem(store.key, raw);
+
+      expect(store.load()).toBeNull();                       // cannot be opened...
+      expect(store.loadIssue).toMatchObject({ reason, version, writeBlocked: false });
+      const backupKey = store.loadIssue.backupKey;
+      expect(backupKey).toMatch(/^shilploka\.save\.v1\.backup-\d+$/);
+      expect(storage.getItem(backupKey)).toBe(raw);          // ...but kept exactly
+
+      // The new world's first autosave now goes ahead; the backup survives it.
+      expect(store.save(STATE).ok).toBe(true);
+      expect(storage.getItem(backupKey)).toBe(raw);
+    });
+
+    it('refuses to save when even the backup cannot be written (storage full)', () => {
+      storage.setItem(store.key, NEWER);
+      const realSetItem = storage.setItem;
+      storage.setItem = () => { const e = new Error('full'); e.name = 'QuotaExceededError'; throw e; };
+
+      expect(store.load()).toBeNull();
+      expect(store.loadIssue).toMatchObject({ reason: 'newer', backupKey: null, writeBlocked: true });
+
+      // Even once space frees up, this session must not write over the only copy.
+      storage.setItem = realSetItem;
+      const res = store.save(STATE);
+      expect(res.ok).toBe(false);
+      expect(res.error).toBe('protecting unreadable save');
+      expect(storage.getItem(store.key)).toBe(NEWER);
+    });
+
+    it('New World (clear) is explicit consent: it lifts the block but keeps backups', () => {
+      storage.setItem(store.key, CORRUPT);
+      store.load();
+      const backupKey = store.loadIssue.backupKey;
+      store.writeBlocked = true;                             // as if the backup had failed
+
+      store.clear();
+      expect(store.writeBlocked).toBe(false);
+      expect(store.loadIssue).toBeNull();
+      expect(store.save(STATE).ok).toBe(true);
+      expect(storage.getItem(backupKey)).toBe(CORRUPT);
+    });
+
+    it('a readable save reports no issue and makes no backup', () => {
+      store.save(STATE);
+      const before = storage.raw.size;
+      expect(new ShilpSaveStore(storage).load()).not.toBeNull();
+      expect(storage.raw.size).toBe(before);
+    });
+
+    it('runs registered migrations in order (the upgrade path for a future v2)', () => {
+      // No migration exists today: v1 is the first format (the build on main
+      // saves nothing). This proves the mechanism works for when one is added.
+      SAVE_MIGRATIONS[SAVE_VERSION - 1] = d => ({ ...d, version: SAVE_VERSION, seed: d.worldSeed });
+      try {
+        const old = JSON.stringify({ version: SAVE_VERSION - 1, worldSeed: 99, chunks: {} });
+        const { data, reason } = ShilpSaveStore.inspect(old);
+        expect(reason).toBeNull();
+        expect(data).toMatchObject({ version: SAVE_VERSION, seed: 99 });
+      } finally {
+        delete SAVE_MIGRATIONS[SAVE_VERSION - 1];
+      }
     });
   });
 

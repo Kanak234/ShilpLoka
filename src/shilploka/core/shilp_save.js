@@ -58,6 +58,22 @@ export const SAVE_VERSION = 1;
 export const SAVE_KEY = 'shilploka.save.v1';
 
 /**
+ * Upgrades for saves written by OLDER versions of this schema.
+ * Shape: { <fromVersion>: (data) => data-in-the-next-version }.
+ *
+ * WHY it is empty: version 1 is the first save format ShilpLoka has ever had.
+ * The build on main (the one live on itch.io) stores nothing at all - checked
+ * by playing it, pressing K, waiting past any autosave interval and firing
+ * beforeunload: localStorage, sessionStorage, IndexedDB, cookies and Cache
+ * Storage all stayed empty. So there is no older format to convert.
+ *
+ * HOW to use it: when the shape changes, bump SAVE_VERSION to 2 and add
+ * `1: (d) => ({ ...d, version: 2, <new fields> })`. inspect() runs the chain,
+ * so a v1 save opened by a v3 build goes 1 -> 2 -> 3 automatically.
+ */
+export const SAVE_MIGRATIONS = {};
+
+/**
  * Above this size the HUD warns the player.
  * WHY 4 MB: browsers cap localStorage at roughly 5 MB per site. Warning at 4
  * leaves headroom, so the player hears about it before a save actually fails.
@@ -108,6 +124,22 @@ export class ShilpSaveStore {
      * USED FOR: skipping pointless autosaves when nothing changed.
      */
     this.dirty = false;
+
+    /**
+     * Set by load() when a save EXISTS but cannot be used: damaged JSON, or a
+     * version this build does not understand (e.g. a save from a newer build).
+     * { reason: 'corrupt'|'newer'|'invalid', version, backupKey, writeBlocked }
+     * USED BY: the engine, to tell the player exactly what happened.
+     * @type {null|{reason:string, version:(number|null), backupKey:(string|null), writeBlocked:boolean}}
+     */
+    this.loadIssue = null;
+
+    /**
+     * True when an unreadable save could NOT be backed up (storage full).
+     * save() then refuses to write, because writing would overwrite the only
+     * copy of the player's old world.
+     */
+    this.writeBlocked = false;
   }
 
   /**
@@ -250,20 +282,49 @@ export class ShilpSaveStore {
    * @param {string|null} json
    * @returns {Object|null}
    */
-  static deserialize(json) {
-    if (!json) return null;
+  /**
+   * Parse a stored save and say WHY it is unusable when it is.
+   *
+   * WHY this exists alongside deserialize(): "null" alone cannot tell "there
+   * is no save" from "there is a save I must not destroy". load() needs that
+   * difference to protect the data instead of letting the next autosave
+   * overwrite it.
+   *
+   * @param {string|null} json
+   * @returns {{data: Object|null, reason: null|'empty'|'corrupt'|'newer'|'invalid', version: number|null}}
+   */
+  static inspect(json) {
+    if (!json) return { data: null, reason: 'empty', version: null };
     let data;
     try {
       data = JSON.parse(json);
     } catch {
-      return null;
+      return { data: null, reason: 'corrupt', version: null };
     }
-    if (!data || typeof data !== 'object') return null;
-    // A save from a different schema version is not guessed at.
-    if (data.version !== SAVE_VERSION) return null;
-    if (!Number.isFinite(data.seed)) return null;
-    if (data.chunks && typeof data.chunks !== 'object') return null;
-    return data;
+    if (!data || typeof data !== 'object') return { data: null, reason: 'corrupt', version: null };
+
+    const version = Number.isInteger(data.version) ? data.version : null;
+    if (version !== null && version > SAVE_VERSION) {
+      // Written by a NEWER build. Never guess at its fields.
+      return { data: null, reason: 'newer', version };
+    }
+    // Older schema: upgrade step by step through SAVE_MIGRATIONS.
+    let v = version;
+    while (v !== null && v < SAVE_VERSION) {
+      const step = SAVE_MIGRATIONS[v];
+      if (!step) return { data: null, reason: 'invalid', version };
+      data = step(data);
+      v = data.version;
+    }
+    if (v !== SAVE_VERSION || !Number.isFinite(data.seed) ||
+        (data.chunks && typeof data.chunks !== 'object')) {
+      return { data: null, reason: 'invalid', version };
+    }
+    return { data, reason: null, version };
+  }
+
+  static deserialize(json) {
+    return ShilpSaveStore.inspect(json).data;
   }
 
   /**
@@ -300,6 +361,12 @@ export class ShilpSaveStore {
     if (!this.storage) {
       return { ok: false, bytes: 0, tooLarge: false, error: 'storage unavailable' };
     }
+    if (this.writeBlocked) {
+      // An unreadable save is in the slot and could not be backed up. Writing
+      // now would destroy it, so this build does not save until the player
+      // chooses New World (which calls clear()).
+      return { ok: false, bytes: 0, tooLarge: false, error: 'protecting unreadable save' };
+    }
     const json = this.serialize(state);
     // localStorage accounts in UTF-16 code units in most browsers, so each
     // character costs 2 bytes against the quota. Estimating conservatively
@@ -325,6 +392,7 @@ export class ShilpSaveStore {
    * @returns {Object|null} The save, or null when there is none / it is bad.
    */
   load() {
+    this.loadIssue = null;
     if (!this.storage) return null;
     let json = null;
     try {
@@ -332,9 +400,29 @@ export class ShilpSaveStore {
     } catch {
       return null;
     }
-    const data = ShilpSaveStore.deserialize(json);
-    if (data) this.loadDiffs(data);
-    return data;
+    const { data, reason, version } = ShilpSaveStore.inspect(json);
+    if (data) {
+      this.loadDiffs(data);
+      return data;
+    }
+    if (reason === 'empty') return null;
+
+    // A save exists but this build cannot use it. It is NOT discarded: the
+    // raw text is copied to a timestamped backup key first. WHY: the game is
+    // about to start a new world, and its first autosave would otherwise
+    // overwrite the player's old world with no way back.
+    const backupKey = `${this.key}.backup-${Date.now()}`;
+    let backedUp = false;
+    try {
+      this.storage.setItem(backupKey, json);
+      backedUp = true;
+    } catch {
+      // Storage is full, so even the backup failed. Stop ALL saving instead:
+      // losing new progress is recoverable, overwriting the only copy is not.
+      this.writeBlocked = true;
+    }
+    this.loadIssue = { reason, version, backupKey: backedUp ? backupKey : null, writeBlocked: this.writeBlocked };
+    return null;
   }
 
   /**
@@ -344,6 +432,11 @@ export class ShilpSaveStore {
   clear() {
     this.diffs.clear();
     this.dirty = false;
+    // The player confirmed "delete this world and start over", so the
+    // protection for an unreadable save no longer applies. Backup keys are
+    // left alone: they are the player's data, not the current world.
+    this.writeBlocked = false;
+    this.loadIssue = null;
     if (!this.storage) return;
     try {
       this.storage.removeItem(this.key);

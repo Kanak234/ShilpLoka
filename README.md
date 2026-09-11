@@ -52,6 +52,14 @@ Your world saves itself. There is nothing to press.
   deletes the save, after asking, and starts a fresh random world.
 - **Private browsing:** where storage is blocked the game still runs, and says
   that saving is unavailable.
+- **A save that can't be opened** (damaged, or written by a newer version) is
+  never overwritten. Its exact text is copied to
+  `shilploka.save.v1.backup-<timestamp>` first and the game says so. If storage
+  is too full even for that copy, saving is paused until you choose New World.
+- **Format versions:** every save carries `version`. Version 1 is the first
+  format; the earlier builds (including the one on itch.io) saved nothing, so
+  there is nothing to migrate. Future formats upgrade through
+  `SAVE_MIGRATIONS` in `shilp_save.js`.
 
 ## Develop
 
