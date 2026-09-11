@@ -118,6 +118,45 @@ describe('ShilpInventory', () => {
     });
   });
 
+  describe('moveSlot (the inventory panel\'s click-to-move)', () => {
+    it('swaps a pouch slot into the hotbar', () => {
+      inv.setSlot(20, 'DECCAN_BASALT', 7);
+      expect(inv.moveSlot(20, 0)).toBe(true);
+      expect(inv.getSlot(0)).toEqual({ itemId: 'DECCAN_BASALT', count: 7 });
+      expect(inv.getSlot(20)).toEqual({ itemId: 'HARAPPAN_BAKED_BRICK', count: 48 });
+    });
+
+    it('moves into an empty slot', () => {
+      expect(inv.moveSlot(6, 30)).toBe(true);
+      expect(inv.getSlot(6)).toBeNull();
+      expect(inv.getSlot(30)).toEqual({ itemId: 'SAFFRON', count: 8 });
+    });
+
+    it('merges the same item up to maxStack and leaves the rest behind', () => {
+      const max = SHILP_ITEMS.HARAPPAN_BAKED_BRICK.maxStack;
+      inv.setSlot(0, 'HARAPPAN_BAKED_BRICK', max - 5);
+      inv.setSlot(12, 'HARAPPAN_BAKED_BRICK', 9);
+      const total = inv.countItem('HARAPPAN_BAKED_BRICK');
+      inv.moveSlot(12, 0);
+      expect(inv.getSlot(0).count).toBe(max);
+      expect(inv.getSlot(12).count).toBe(4);
+      expect(inv.countItem('HARAPPAN_BAKED_BRICK')).toBe(total);   // nothing created or lost
+    });
+
+    it('empties the source slot when the whole stack fits', () => {
+      inv.setSlot(12, 'HARAPPAN_BAKED_BRICK', 2);
+      inv.moveSlot(12, 0);
+      expect(inv.getSlot(0).count).toBe(50);
+      expect(inv.getSlot(12)).toBeNull();
+    });
+
+    it.each([[-1, 0], [0, 36], [3, 3], [1.5, 2]])('refuses moveSlot(%s, %s)', (from, to) => {
+      const before = JSON.stringify(inv.slots);
+      expect(inv.moveSlot(from, to)).toBe(false);
+      expect(JSON.stringify(inv.slots)).toBe(before);
+    });
+  });
+
   describe('craftRecipe', () => {
     it('consumes the ingredients and grants the result', () => {
       const recipe = VEDIC_RECIPES.find(r => r.id === 'craft_banyan_planks');

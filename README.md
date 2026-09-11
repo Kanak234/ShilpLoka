@@ -27,9 +27,16 @@ Click the game to lock the mouse, then:
 | Barter with Dhanapati | B |
 | Vedic crafting altar | C |
 | Learning Center (guide) | H |
+| Inventory (all 36 slots) | E |
+| Save now | K |
+| Load the last save | L |
 
-On phones and tablets an on-screen joystick and buttons appear automatically.
-To force them on a desktop browser, open `?mobile=true`.
+Shortcuts do nothing while you are typing in a field, and leave browser
+combinations such as Ctrl+L alone.
+
+On phones and tablets an on-screen joystick and buttons appear automatically,
+including 🎒 Inventory, 💾 Save and 📂 Load. To force them on a desktop browser,
+open `?mobile=true`.
 
 The Ashoka Sthambha and the Great Bath masonry are heritage blocks: they cannot
 be mined. Every block you can place — baked brick, soil, sandstone, basalt,
@@ -38,7 +45,8 @@ inventory.
 
 ## Saves
 
-Your world saves itself. There is nothing to press.
+Your world saves itself; K (or 💾 on a phone) saves on demand, and L (📂)
+goes back to the last save.
 
 - **What is saved:** only the blocks you changed, plus the world seed, your
   position and view direction, your inventory, and the merchant's stock. The
@@ -66,7 +74,8 @@ Your world saves itself. There is nothing to press.
 ## Develop
 
 ```bash
-npm test               # vitest: inventory, save system, world, barter
+npm test               # vitest: inventory, save system, world, barter, hotkeys,
+                       # and a guard that deleted legacy modules stay unreferenced
 npm run build          # production build -> dist/index.html (single file)
 ```
 

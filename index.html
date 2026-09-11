@@ -28,6 +28,10 @@
     <button id="crafting-toggle-btn" class="toolbar-btn">
       <span class="btn-icon">☸</span> निर्माण पीठ (Crafting) <kbd>C</kbd>
     </button>
+    <!-- Inventory (all 36 slots). Wired in ShilpEngine step 13b. -->
+    <button id="inventory-toggle-btn" class="toolbar-btn" type="button">
+      <span class="btn-icon">🎒</span> पोटली (Inventory) <kbd>E</kbd>
+    </button>
     <!-- New World: throws away the saved world and starts a fresh random seed.
          Wired in ShilpEngine._initSaveSystem(); always asks for confirmation. -->
     <button id="new-world-btn" class="toolbar-btn toolbar-btn-quiet" type="button">
@@ -74,6 +78,9 @@
     <span><kbd>B</kbd> Barter</span>
     <span><kbd>C</kbd> Crafting</span>
     <span><kbd>H</kbd> Guide</span>
+    <span><kbd>E</kbd> Inventory</span>
+    <span><kbd>K</kbd> Save</span>
+    <span><kbd>L</kbd> Load</span>
   </div>
 
   <!-- In-Game MDN-Style Desi Learning Center Modal -->
@@ -84,6 +91,9 @@
 
   <!-- Vedic Crafting Altar Modal -->
   <div id="crafting-modal" class="crafting-modal-root hidden"></div>
+
+  <!-- Inventory panel (Potli, E): filled by ShilpInventoryPanel -->
+  <div id="inventory-modal" class="inventory-modal-root hidden"></div>
 
 
   <script type="module" src="./src/shilploka/shilploka_main.js"></script>

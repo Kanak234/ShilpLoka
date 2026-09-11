@@ -1027,9 +1027,26 @@ kbd {
   top: 60px;
   right: 16px;
   display: flex;
-  gap: 8px;
   pointer-events: auto;
   z-index: 55;
+  /* Six buttons since Inventory/Save/Load were added: wrap into rows on the
+     right half of the screen instead of running under the HUD (which takes
+     up to 48vw on the left) or off the edge. 50vw - 24px leaves a gap. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: calc(50vw - 24px);
+}
+
+/* Portrait phones: one column down the right edge. WHY: the HUD keeps a
+   220 px min-width, so the space to its right is only ~110-150 px; a column
+   is as wide as the widest button, where rows would reach across the HUD. */
+@media (orientation: portrait) {
+  .mobile-quick-toolbar {
+    flex-direction: column;
+    align-items: flex-end;
+    max-width: none;
+  }
 }
 
 .mobile-mini-btn {
@@ -1129,4 +1146,101 @@ kbd {
    wins at equal specificity. */
 @media (max-width: 920px), (pointer: coarse) {
   .save-toast { bottom: 84px; }
+}
+
+/* ==========================================================================
+   Inventory panel - Potli (E). Same frame, colours and slot look as the
+   crafting altar and the hotbar, so it reads as part of the same game.
+   ========================================================================== */
+.inventory-modal-root {
+  position: absolute;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 8, 7, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.inventory-modal-root.hidden {
+  display: none;
+}
+
+.inventory-card {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  background: #19130f;
+  border: 2px solid #d4af37;
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.9);
+}
+
+.inventory-body {
+  padding: 16px 24px 20px;
+}
+
+.inventory-label {
+  color: #deb887;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 10px 0 8px;
+}
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 52px);
+  gap: 8px;
+}
+
+/* A <button> reset on top of .hotbar-slot, so the slots are keyboard- and
+   screen-reader-reachable but look exactly like the hotbar. */
+.inventory-slot {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.inventory-slot.picked {
+  border-color: #2ecc71;
+  box-shadow: 0 0 12px rgba(46, 204, 113, 0.75);
+  transform: translateY(-3px);
+}
+
+.inventory-held {
+  min-height: 18px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #2ecc71;
+}
+
+/* Phones, portrait (narrow) or landscape (short): 9 x 30 px + gaps + padding
+   is 330 px, inside the 336 px a 360 px-wide screen leaves for the card, and
+   all four rows fit a 360 px-tall screen. The 1-9 badges are dropped at this
+   size (they covered the icon); the row is labelled "Hotbar (1-9)". */
+@media (max-width: 620px), (max-height: 480px) {
+  .inventory-grid {
+    grid-template-columns: repeat(9, 30px);
+    gap: 4px;
+  }
+  .inventory-grid .hotbar-slot {
+    width: 30px;
+    height: 30px;
+  }
+  .inventory-grid .slot-number {
+    display: none;
+  }
+  .inventory-grid .slot-count {
+    font-size: 9px;
+    bottom: 1px;
+    right: 2px;
+  }
+  .inventory-grid .slot-icon {
+    font-size: 16px;
+  }
+  .inventory-body {
+    padding: 10px 12px 14px;
+  }
 }

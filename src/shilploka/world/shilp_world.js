@@ -390,6 +390,38 @@ export class ShilpWorld {
     this._remeshQueue.delete(key);
   }
 
+  /**
+   * Rebuild the given chunks from terrain + the save store's CURRENT diff.
+   *
+   * WHY: quick load swaps the diff for the saved one. A loaded chunk still
+   * holds voxels built from the old diff, so it must be regenerated. Chunks
+   * that are not loaded need nothing: _loadChunk() applies the new diff when
+   * they stream in.
+   *
+   * WHY only some chunks: a chunk with no edits in either diff is pure
+   * terrain from the same seed - identical before and after - so rebuilding
+   * it would only cost time. The caller passes the union of both diffs' keys.
+   *
+   * NEXT: _loadChunk() meshes each one immediately and queues its
+   * neighbours for a border remesh.
+   *
+   * @param {Iterable<string>} keys - "cx,cz" chunk keys.
+   * @returns {number} How many loaded chunks were rebuilt.
+   */
+  refreshChunks(keys) {
+    let rebuilt = 0;
+    for (const key of keys) {
+      const old = this.chunks.get(key);
+      if (!old) continue;
+      this._unloadChunk(key);
+      this._loadChunk(old.chunkX, old.chunkZ);
+      rebuilt++;
+    }
+    // The block under the crosshair may have just changed or vanished.
+    this.targetVoxel = null;
+    return rebuilt;
+  }
+
   // ═══════════════════════════════════════════════════════════════ STREAMING
 
   /**

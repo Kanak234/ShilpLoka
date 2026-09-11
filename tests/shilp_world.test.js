@@ -220,6 +220,45 @@ describe('ShilpWorld', () => {
     });
   });
 
+  describe('quick load (refreshChunks)', () => {
+    // The engine's quickLoad() = saveStore.load() + world.refreshChunks(old
+    // keys ∪ new keys). This drives that exact sequence on a real world.
+    it('reverts edits made after the save and restores the saved ones', () => {
+      const storage = new Map();
+      const mem = { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k) };
+      const save = new ShilpSaveStore(mem);
+      const world = makeWorld({ saveStore: save });
+      streamTo(world, 8, 8);
+
+      const kept = { x: 4, z: 4 };
+      kept.y = topSolidY(world, kept.x, kept.z);
+      world.setBlock(kept.x, kept.y, kept.z, ShilpBlockId.AIR);            // saved edit
+      save.save({ seed: world.seed });
+
+      // After the save: undo the saved edit AND make a new one in another chunk.
+      world.setBlock(kept.x, kept.y, kept.z, ShilpBlockId.CHUNAR_SANDSTONE);
+      const lateY = topSolidY(world, -6, 5) + 1;
+      world.setBlock(-6, lateY, 5, ShilpBlockId.HARAPPAN_BAKED_BRICK);    // unsaved edit
+      const untouchedMesh = world.chunks.get('0,-1').mesh;
+
+      const touched = new Set(save.diffs.keys());                       // as quickLoad() does
+      expect(save.load()).not.toBeNull();
+      for (const k of save.diffs.keys()) touched.add(k);
+      const rebuilt = world.refreshChunks(touched);
+
+      expect(world.getBlock(kept.x, kept.y, kept.z)).toBe(ShilpBlockId.AIR);        // saved state back
+      expect(world.getBlock(-6, lateY, 5)).toBe(ShilpBlockId.AIR);                  // unsaved edit gone
+      expect(rebuilt).toBe(2);                                                       // chunks 0,0 and -1,0 only
+      expect(world.chunks.get('0,-1').mesh).toBe(untouchedMesh);                    // others left alone
+      expect(save.dirty).toBe(false);
+    });
+
+    it('ignores keys of chunks that are not loaded (they apply the diff when they stream in)', () => {
+      const world = makeWorld();
+      expect(world.refreshChunks(['500,500'])).toBe(0);
+    });
+  });
+
   describe('streaming', () => {
     it('keeps the loaded set bounded no matter how far the player travels', () => {
       const world = makeWorld({ viewDistance: 2 });

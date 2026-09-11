@@ -32,6 +32,8 @@ import { TelemetrySystem } from '../ecs/systems/telemetry_system.js';
 import { ShilpLearningCenter } from '../ui/shilp_learning_center.js';
 import { ShilpBarterModal } from '../ui/shilp_barter_modal.js';
 import { ShilpCraftingModal } from '../ui/shilp_crafting_modal.js';
+import { ShilpInventoryPanel } from '../ui/shilp_inventory_panel.js';
+import { createHotkeyHandler } from '../input/hotkeys.js';
 import { ShilpInventory, SHILP_ITEMS } from '../inventory/shilp_inventory.js';
 import { ShilpWorld } from '../world/shilp_world.js';
 import { ShilpBlockId } from '../world/voxel_constants.js';
@@ -177,23 +179,37 @@ export class ShilpEngine {
       }
     }
 
-    // 14. Hotbar Rendering & Keyboard Selection
-    this.renderHotbar();
-    this.handleKeyDown = (e) => {
-      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+    // 13b. Inventory panel (Potli): all 36 slots. Before this, only the 9
+    // hotbar slots were ever drawn and E did nothing.
+    // NEXT: a move inside the panel redraws the hotbar through the callback.
+    const inventoryModal = document.getElementById('inventory-modal');
+    if (inventoryModal) {
+      this.inventoryPanel = new ShilpInventoryPanel(inventoryModal, this.inventory, () => this.renderHotbar());
+      const inventoryToggleBtn = document.getElementById('inventory-toggle-btn');
+      if (inventoryToggleBtn) {
+        inventoryToggleBtn.addEventListener('click', () => this.inventoryPanel.toggle());
+      }
+    }
 
-      if (e.code === 'KeyB') {
-        if (this.barterModal) this.barterModal.toggle();
-      } else if (e.code === 'KeyC') {
-        if (this.craftingModal) this.craftingModal.toggle();
-      } else if (e.code === 'KeyH') {
-        if (this.learningCenter) this.learningCenter.toggle();
-      } else if (e.key >= '1' && e.key <= '9') {
-        const slotIdx = parseInt(e.key, 10) - 1;
+    // 14. Hotbar Rendering & Keyboard Shortcuts
+    // WHY a handler table: when a key may fire (not while typing, not with
+    // Ctrl/Cmd/Alt, not on auto-repeat) is decided in input/hotkeys.js, which
+    // has its own tests. Each entry below only says WHAT the key does.
+    // K and L were mapped in PranaInput (QUICK_SAVE / QUICK_LOAD) and E
+    // (INVENTORY_TOGGLE) too, but nothing ever handled them.
+    this.renderHotbar();
+    this.handleKeyDown = createHotkeyHandler({
+      quickSave: () => this.saveGame(),
+      quickLoad: () => this.quickLoad(),
+      toggleInventory: () => this.inventoryPanel?.toggle(),
+      toggleBarter: () => this.barterModal?.toggle(),
+      toggleCrafting: () => this.craftingModal?.toggle(),
+      toggleLearning: () => this.learningCenter?.toggle(),
+      selectSlot: (slotIdx) => {
         this.inventory.setActiveSlot(slotIdx);
         this.renderHotbar();
-      }
-    };
+      },
+    });
     window.addEventListener('keydown', this.handleKeyDown, false);
 
     // 15. Voxel Interaction & Indestructible Monument Preservation Shield
@@ -734,6 +750,84 @@ export class ShilpEngine {
   }
 
   /**
+   * Quick load (L, or the mobile 📂 button): go back to the last save.
+   *
+   * WHY in place rather than reloading the page: a reload regenerates all 81
+   * chunks and restarts the engine - seconds of blank screen for what is
+   * usually "undo the last few minutes". Only chunks whose edits differ
+   * between the running game and the save can look different, so only those
+   * are rebuilt (see ShilpWorld.refreshChunks).
+   *
+   * No confirmation: the most it can discard is what changed since the last
+   * save, and the autosave runs every 30 s.
+   *
+   * @returns {boolean} true when a save was loaded.
+   */
+  quickLoad() {
+    if (!this.saveStore.available) {
+      this._showSaveToast('⚠ Saving is unavailable in this browser mode', true);
+      return false;
+    }
+    // Chunks the RUNNING game has edits in. Captured before load(), because
+    // load() replaces the diff; a chunk edited since the save must be rebuilt
+    // too, or the newer edit would stay on screen.
+    const touched = new Set(this.saveStore.diffs.keys());
+
+    const data = this.saveStore.load();
+    if (!data) {
+      if (this.saveStore.loadIssue) {
+        // The slot holds something unreadable. load() has already backed it
+        // up (or blocked saving); the running world and its edits are untouched.
+        this._showSaveToast("⚠ The save couldn't be read. It was kept as a backup; nothing was loaded.", true, 8000);
+      } else {
+        this._showSaveToast('No save yet — press K to save');
+      }
+      return false;
+    }
+
+    if (data.seed !== this.world.seed) {
+      // A save of a DIFFERENT world (e.g. New World pressed in another tab).
+      // Its terrain must be regenerated from its own seed, which is exactly
+      // what startup does, so reload. Autosave is stopped first: otherwise the
+      // unload handler would write this world's state over that save.
+      this._stopAutosave();
+      window.location.reload();
+      return true;
+    }
+
+    for (const key of this.saveStore.diffs.keys()) touched.add(key);
+    this.world.refreshChunks(touched);
+    this._restoreFromSave(data);
+
+    // The player may now stand in a different chunk: stream around the saved
+    // spot, and build the ground under them before the next physics step.
+    const t = this.ecs.getComponent(this.playerEntityId, 'Transform');
+    if (t) {
+      this.world.updateStreaming(t.position.x, t.position.z, true);
+      this.world.processStreamingQueue(9);
+    }
+    this.renderHotbar();
+    if (this.inventoryPanel?.isOpen) this.inventoryPanel.render();
+
+    const secs = Math.max(0, Math.round((Date.now() - (data.savedAt ?? Date.now())) / 1000));
+    const ago = secs < 60 ? `${secs} s` : `${Math.round(secs / 60)} min`;
+    this._showSaveToast(`Loaded ✓ (saved ${ago} ago)`);
+    return true;
+  }
+
+  /**
+   * Stop every autosave trigger.
+   * USED BY: startNewWorld() and quickLoad()'s cross-world reload - both
+   * reload the page, and the beforeunload autosave would otherwise write the
+   * world being left over the save that is about to be opened.
+   */
+  _stopAutosave() {
+    clearInterval(this.autosaveInterval);
+    window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    document.removeEventListener('visibilitychange', this.handleVisibility);
+  }
+
+  /**
    * Discard the saved world and reload into a fresh random seed.
    * WHY a page reload rather than rebuilding in place: the world, every chunk
    * mesh, the ECS entities and the streaming queues would all need tearing down. A
@@ -748,9 +842,7 @@ export class ShilpEngine {
 
     // Stop the autosave and unload handlers first, or they would immediately
     // write the OLD world back into storage during the reload.
-    clearInterval(this.autosaveInterval);
-    window.removeEventListener('beforeunload', this.handleBeforeUnload);
-    document.removeEventListener('visibilitychange', this.handleVisibility);
+    this._stopAutosave();
 
     this.saveStore.clear();
     window.location.reload();
