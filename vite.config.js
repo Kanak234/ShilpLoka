@@ -1,8 +1,12 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
+import { legacyEntryAlias } from './scripts/vite_legacy_entry.js';
+
 export default defineConfig({
-  plugins: [viteSingleFile()],
+  // legacyEntryAlias: index.html is the only entry page; the old
+  // /shilploka.html address is generated from it (see the plugin's header).
+  plugins: [viteSingleFile(), legacyEntryAlias()],
   build: {
     target: 'esnext',
     assetsInlineLimit: 100000000,

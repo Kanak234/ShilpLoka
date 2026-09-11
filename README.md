@@ -80,8 +80,11 @@ npm run build          # production build -> dist/index.html (single file)
 ```
 
 The live game starts at `index.html` → `src/shilploka/shilploka_main.js` →
-`src/shilploka/core/shilp_engine.js`. `shilploka.html` is an identical copy of
-`index.html`; change both.
+`src/shilploka/core/shilp_engine.js`. `index.html` is the only entry page. The
+old address `shilploka.html` still works but is generated, never edited:
+`npm run dev` answers it with `index.html`, and `npm run build` writes a small
+`dist/shilploka.html` that forwards to `index.html` (query string kept). See
+`scripts/vite_legacy_entry.js`.
 
 ## Releases — what is real
 
