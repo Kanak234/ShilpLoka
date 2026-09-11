@@ -145,6 +145,78 @@ describe('ShilpWorld', () => {
       streamTo(worldB, 8, 8);
       expect(worldB.getBlock(3, 55, 3)).toBe(ShilpBlockId.CHUNAR_SANDSTONE);
     });
+
+    it('full round trip: place + break, walk out of view, walk back, then reload the page', () => {
+      // WHY this test: it strings together, in the order a player does them,
+      // every step the review asked to verify. The tests above each cover one
+      // step; a bug in how they combine (e.g. a re-streamed chunk writing its
+      // regenerated terrain back into the diff) would only show up here.
+      const storage = new Map();
+      const mem = { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k) };
+      const VD = 2;
+      const scene = new THREE.Scene();
+      const save = new ShilpSaveStore(mem);
+      const world = new ShilpWorld(scene, { seed: 1234, viewDistance: VD, saveStore: save });
+      streamTo(world, 8, 8);
+
+      // Edits in three chunks, one of them negative: two breaks, two placed bricks.
+      const breakA = { x: 5, z: 5 };
+      const breakB = { x: -12, z: 3 };
+      breakA.y = topSolidY(world, breakA.x, breakA.z);
+      breakB.y = topSolidY(world, breakB.x, breakB.z);
+      const original = [world.getBlock(breakA.x, breakA.y, breakA.z), world.getBlock(breakB.x, breakB.y, breakB.z)];
+      expect(original.every(id => SHILP_BLOCK_REGISTRY[id].solid)).toBe(true);
+      world.setBlock(breakA.x, breakA.y, breakA.z, ShilpBlockId.AIR);
+      world.setBlock(breakB.x, breakB.y, breakB.z, ShilpBlockId.AIR);
+      const placeY = topSolidY(world, 6, 20) + 1;
+      world.setBlock(6, placeY, 20, ShilpBlockId.HARAPPAN_BAKED_BRICK);
+      world.setBlock(6, placeY + 1, 20, ShilpBlockId.HARAPPAN_BAKED_BRICK);
+
+      const check = w => [
+        w.getBlock(breakA.x, breakA.y, breakA.z),
+        w.getBlock(breakB.x, breakB.y, breakB.z),
+        w.getBlock(6, placeY, 20),
+        w.getBlock(6, placeY + 1, 20),
+      ];
+      const EXPECTED = [ShilpBlockId.AIR, ShilpBlockId.AIR, ShilpBlockId.HARAPPAN_BAKED_BRICK, ShilpBlockId.HARAPPAN_BAKED_BRICK];
+      expect(check(world)).toEqual(EXPECTED);
+      const editedKeys = ['0,0', '-1,0', '0,1'];
+      const editedMeshes = editedKeys.map(k => world.chunks.get(k).mesh);
+
+      // Walk east in 8-block steps (half a chunk per step, like real movement,
+      // so the hysteresis path runs) until the edited chunks are beyond VD + 1.
+      let x = 8;
+      while (editedKeys.some(k => world.chunks.has(k))) {
+        x += 8;
+        streamTo(world, x, 8);
+        expect(x).toBeLessThan(16 * (VD + 4));        // must unload within a few chunks
+      }
+      // Really gone: voxels dropped and meshes taken out of the scene.
+      for (const mesh of editedMeshes) expect(mesh.parent).toBeNull();
+      expect(save.editCount).toBe(4);                  // the diff is all that remains
+
+      // Walk back.
+      while (x > 8) { x -= 8; streamTo(world, x, 8); }
+      expect(editedKeys.every(k => world.chunks.has(k))).toBe(true);
+      expect(check(world)).toEqual(EXPECTED);
+      // Reloading chunks must not have turned regenerated terrain into edits.
+      expect(save.editCount).toBe(4);
+
+      // Page reload: autosave, then a brand-new store and world from storage.
+      expect(save.save({ seed: world.seed }).ok).toBe(true);
+      const save2 = new ShilpSaveStore(mem);
+      const loaded = save2.load();
+      const world2 = new ShilpWorld(new THREE.Scene(), { seed: loaded.seed, viewDistance: VD, saveStore: save2 });
+      streamTo(world2, 8, 8);
+      expect(check(world2)).toEqual(EXPECTED);
+
+      // Control: the same seed WITHOUT the saved diff still has the original
+      // terrain, so the checks above are not passing by coincidence.
+      const bare = makeWorld({ viewDistance: VD });
+      streamTo(bare, 8, 8);
+      expect([bare.getBlock(breakA.x, breakA.y, breakA.z), bare.getBlock(breakB.x, breakB.y, breakB.z)]).toEqual(original);
+      expect(bare.getBlock(6, placeY, 20)).toBe(ShilpBlockId.AIR);
+    });
   });
 
   describe('streaming', () => {
