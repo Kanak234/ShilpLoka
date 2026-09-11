@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ShilpSaveStore } from '../src/shilploka/core/shilp_save.js';
+import { SHILP_ITEMS } from '../src/shilploka/inventory/shilp_inventory.js';
 import { ShilpGreedyMesher } from '../src/shilploka/world/greedy_mesher.js';
 import {
   CHUNK_SIZE_X,
@@ -289,9 +290,20 @@ describe('ShilpWorld', () => {
     it.each([
       ['Ashoka Sthambha pillar', ShilpBlockId.ASHOKA_PILLAR_BLOCK],
       ['Great Bath masonry', ShilpBlockId.MOHENJO_GREAT_BATH_BLOCK],
-      ['Bitumen mortar', ShilpBlockId.BITUMEN_MORTAR],
     ])('canBreakVoxel refuses %s', (_name, id) => {
       expect(canBreakVoxel(id)).toBe(false);
+    });
+
+    it('the monuments are the ONLY blocks that refuse to break', () => {
+      // Guards both directions: a new block marked heritage by mistake, or a
+      // monument losing its protection, changes this list and fails here.
+      const protectedIds = Object.values(SHILP_BLOCK_REGISTRY)
+        .filter(m => m.isHeritage)
+        .map(m => m.id)
+        .sort((a, b) => a - b);
+      expect(protectedIds).toEqual(
+        [ShilpBlockId.ASHOKA_PILLAR_BLOCK, ShilpBlockId.MOHENJO_GREAT_BATH_BLOCK].sort((a, b) => a - b)
+      );
     });
 
     it('still lets ordinary blocks be mined', () => {
@@ -304,6 +316,46 @@ describe('ShilpWorld', () => {
       expect(world.tryBreakTargetVoxel().success).toBe(true);
       expect(world.getBlock(12, y, 12)).toBe(ShilpBlockId.AIR);
     });
+  });
+
+  describe('placeable blocks follow one breaking rule', () => {
+    // Review decision: bitumen mortar is a building material, so it must break
+    // exactly like the other blocks the player places.
+    const placeable = Object.values(SHILP_ITEMS).filter(item => item.isBlock);
+
+    it('bitumen mortar is one of the placeable blocks (so the table below covers it)', () => {
+      expect(placeable.map(i => i.blockId)).toContain(ShilpBlockId.BITUMEN_MORTAR);
+    });
+
+    it.each(placeable.map(i => [i.id, i.blockId]))(
+      '%s: placed through the player path, then mined through the player path',
+      (_itemId, blockId) => {
+        const world = makeWorld();
+        streamTo(world, 8, 8);
+        // Aim at the top of a column, as the crosshair does, and place on it.
+        const x = 12, z = 3;
+        const top = topSolidY(world, x, z);
+        const aim = y => ({
+          x, y, z,
+          blockId: world.getBlock(x, y, z),
+          meta: SHILP_BLOCK_REGISTRY[world.getBlock(x, y, z)],
+          normal: new THREE.Vector3(0, 1, 0),
+        });
+        world.targetVoxel = aim(top);
+        expect(world.tryPlaceAdjacentVoxel(blockId)).toBe(true);
+        expect(world.getBlock(x, top + 1, z)).toBe(blockId);
+
+        // Now mine the block that was just placed.
+        world.targetVoxel = aim(top + 1);
+        const res = world.tryBreakTargetVoxel();
+        expect(res).toMatchObject({ success: true, wasHeritage: false, blockId });
+        expect(world.getBlock(x, top + 1, z)).toBe(ShilpBlockId.AIR);
+        // The removal is what gets saved, so it stays removed after a reload.
+        expect(world.saveStore.getChunkDiff(0, 0).get((x) + 16 * (z + 16 * (top + 1)))).toBe(ShilpBlockId.AIR);
+        // The player path only mines what the rule allows.
+        expect(canBreakVoxel(blockId)).toBe(true);
+      }
+    );
   });
 
   describe('greedy mesher at chunk borders', () => {

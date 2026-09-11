@@ -31,8 +31,10 @@ Click the game to lock the mouse, then:
 On phones and tablets an on-screen joystick and buttons appear automatically.
 To force them on a desktop browser, open `?mobile=true`.
 
-The Ashoka Sthambha, Great Bath masonry and bitumen mortar are heritage blocks:
-they cannot be mined.
+The Ashoka Sthambha and the Great Bath masonry are heritage blocks: they cannot
+be mined. Every block you can place — baked brick, soil, sandstone, basalt,
+banyan wood and bitumen mortar — can be mined again, and returns to your
+inventory.
 
 ## Saves
 
