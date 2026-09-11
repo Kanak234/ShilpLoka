@@ -1,6 +1,12 @@
 /**
  * @fileoverview Automated Verification Suite for ShilpLoka Step 2
- * (Octrees, Greedy Meshing, Voxel Physics & Indestructible Heritage)
+ * (Frustum Culling, Greedy Meshing, Voxel Physics & Indestructible Heritage)
+ *
+ * The octree this suite was written for (ShilpOctree) was removed on the
+ * fix/review-sept branch - it hid visible chunks - and replaced by a plain
+ * per-chunk frustum test in ShilpWorld.cullFrustum(). TEST 3 and TEST 6 check
+ * the same numbers as before (engine.cullingMetrics, #hud-octree); only the
+ * wording changed, so the output no longer names a system that is gone.
  */
 
 import puppeteer from 'puppeteer-core';
@@ -8,13 +14,15 @@ import fs from 'fs';
 
 const EDGE_PATH = '/usr/bin/microsoft-edge-stable';
 const URL = 'http://127.0.0.1:5173/shilploka.html';
-const SCREENSHOT_PATH = '/home/kanak/Desktop/ops/shilploka_step2_verification.png';
-const ARTIFACT_PATH = '/home/kanak/.gemini/antigravity-cli/brain/e82db32a-fc22-4a2b-a99f-d9c8e303d0a2/shilploka_step2_verification.png';
+// WHY: this was hardcoded to an absolute path on the author's machine,
+// so the script failed on every other clone. It now writes inside the
+// repo, next to the other screenshots, so `npm run verify` works on any clone.
+const SCREENSHOT_PATH = 'docs/screenshots/shilploka_step2_verification.png';
 
 async function runStep2Verification() {
   console.log('===========================================================');
   console.log('🏛️  STARTING SHILPLOKA STEP 2 VERIFICATION SUITE');
-  console.log('    (Octrees, Greedy Meshing, Voxel Physics & Heritage)');
+  console.log('    (Frustum Culling, Greedy Meshing, Voxel Physics & Heritage)');
   console.log('===========================================================');
 
   const browser = await puppeteer.launch({
@@ -95,18 +103,18 @@ async function runStep2Verification() {
   }
   console.log(`✓ TEST 2 PASSED: Greedy Mesher consolidated chunk faces into ${mesherMetrics.quadCount} quads (${mesherMetrics.vertexCount} vertices).`);
 
-  // --- TEST 3: ShilpOctree Hierarchical Frustum Culling ---
-  console.log('\n--- TEST 3: ShilpOctree Spatial Frustum Culling ---');
-  const octreeMetrics = await page.evaluate(() => {
+  // --- TEST 3: Per-chunk Frustum Culling ---
+  console.log('\n--- TEST 3: Per-Chunk Frustum Culling ---');
+  const cullMetrics = await page.evaluate(() => {
     const eng = window.__SHILPLOKA__;
     return eng.cullingMetrics;
   });
 
-  console.log('Octree Culling Snapshot:', octreeMetrics);
-  if (!octreeMetrics || octreeMetrics.total === 0 || octreeMetrics.cullingRatio <= 0) {
-    throw new Error('TEST 3 FAILED: Octree frustum culling did not cull out-of-view chunks.');
+  console.log('Frustum Culling Snapshot:', cullMetrics);
+  if (!cullMetrics || cullMetrics.total === 0 || cullMetrics.cullingRatio <= 0) {
+    throw new Error('TEST 3 FAILED: Frustum culling did not cull out-of-view chunks.');
   }
-  console.log(`✓ TEST 3 PASSED: ShilpOctree actively culling: ${octreeMetrics.visible}/${octreeMetrics.total} chunks visible (${octreeMetrics.cullingRatio.toFixed(1)}% culled).`);
+  console.log(`✓ TEST 3 PASSED: Frustum culling active: ${cullMetrics.visible}/${cullMetrics.total} chunks visible (${cullMetrics.cullingRatio.toFixed(1)}% culled).`);
 
   // --- TEST 4: VoxelPhysicsSystem & Swept AABB Auto Step-Up ---
   console.log('\n--- TEST 4: VoxelPhysicsSystem & Swept AABB Auto Step-Up ---');
@@ -199,29 +207,29 @@ async function runStep2Verification() {
       fps: document.getElementById('hud-fps')?.textContent,
       phys: document.getElementById('hud-physics-fps')?.textContent,
       coords: document.getElementById('hud-coords')?.textContent,
-      octree: document.getElementById('hud-octree')?.textContent,
+      frustum: document.getElementById('hud-octree')?.textContent,
       target: document.getElementById('hud-target')?.textContent,
     };
   });
 
   console.log('HUD Telemetry Text:', hudSnapshot);
-  if (!hudSnapshot.octree || !hudSnapshot.coords) {
-    throw new Error('TEST 6 FAILED: HUD telemetry missing Octree or Coordinates data.');
+  if (!hudSnapshot.frustum || !hudSnapshot.coords) {
+    throw new Error('TEST 6 FAILED: HUD telemetry missing Frustum or Coordinates data.');
   }
-  console.log('✓ TEST 6 PASSED: Telemetry HUD reflecting real-time Octree culling metrics and Vastu coordinates.');
+  console.log('✓ TEST 6 PASSED: Telemetry HUD reflecting real-time frustum culling metrics and Vastu coordinates.');
 
   // Capture screenshot proof
+  // docs/screenshots/ may not exist on a fresh clone; puppeteer throws if not.
+  fs.mkdirSync('docs/screenshots', { recursive: true });
   await page.screenshot({ path: SCREENSHOT_PATH });
   console.log(`\n✓ Captured verification screenshot: ${SCREENSHOT_PATH}`);
 
-  fs.copyFileSync(SCREENSHOT_PATH, ARTIFACT_PATH);
-  console.log(`✓ Copied screenshot to artifact directory: ${ARTIFACT_PATH}`);
 
   await browser.close();
 
   console.log('\n===========================================================');
   console.log('🎉 SHILPLOKA STEP 2 COMPLETE & 100% VERIFIED:');
-  console.log('   - 3D Hierarchical ShilpOctree with Frustum Culling (>60% Culled)');
+  console.log('   - Per-Chunk Frustum Culling');
   console.log('   - Mikola Lysenko ShilpGreedyMesher (Quad Merging)');
   console.log('   - Procedural Subcontinent Biomes & Organic Indian Trees');
   console.log('   - VoxelPhysicsSystem with Swept AABB & 0.6m Auto Step-Up');

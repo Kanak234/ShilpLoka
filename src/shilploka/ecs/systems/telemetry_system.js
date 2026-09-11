@@ -109,7 +109,12 @@ export class TelemetrySystem {
 
       if (this.octreeElem && this.engine.cullingMetrics) {
         const m = this.engine.cullingMetrics;
-        this.octreeElem.textContent = `Octree Frustum: ${m.visible}/${m.total} Chunks (${m.cullingRatio.toFixed(1)}% Culled)`;
+        // Label no longer says "Octree": culling is a direct per-chunk test now.
+        // The pending count shows chunks still streaming in, so a player who
+        // sees terrain filling in can tell it is loading, not broken.
+        const pending = this.engine.world?.pendingChunkCount ?? 0;
+        this.octreeElem.textContent = `Frustum: ${m.visible}/${m.total} Chunks (${m.cullingRatio.toFixed(1)}% Culled)` +
+          (pending > 0 ? ` • Loading ${pending}` : '');
       }
 
       if (this.targetElem && this.engine.world) {

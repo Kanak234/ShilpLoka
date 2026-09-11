@@ -165,7 +165,15 @@ export const SHILP_BLOCK_REGISTRY = {
     name: 'Ancient Waterproof Bitumen (शिलाजतु संधानक)',
     solid: true,
     transparent: false,
-    isHeritage: true,
+    // NOT heritage (was true). WHY: bitumen is a building material the player
+    // carries (16 in the starting hotbar) and places, like baked brick - it is
+    // not a monument. As heritage it could be placed but never removed, so one
+    // misplaced click was permanent. World generation never places bitumen,
+    // so no monument loses protection: the Ashoka pillar and Great Bath stay
+    // indestructible. USED BY: canBreakVoxel() below, which now applies the
+    // ordinary rule (solid blocks can be mined); the mined block goes back
+    // into the inventory through ShilpEngine.tryMineTargetVoxel().
+    isHeritage: false,
     colorHex: 0x1f1f1f,
   },
 };

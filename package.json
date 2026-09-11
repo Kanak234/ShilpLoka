@@ -19,12 +19,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "puppeteer-core": "^24.43.1",
     "three": "^0.185.1",
     "vite": "^8.2.2"
   },
   "devDependencies": {
     "vite-plugin-singlefile": "^2.3.3",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "puppeteer-core": "^24.43.1"
   }
 }

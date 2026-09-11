@@ -30,7 +30,8 @@ export class ShilpChunk {
     this.isDirty = true;
     this.isDisposed = false;
 
-    // Spatial bounding box for Octree queries
+    // World-space bounds of the chunk column. USED BY ShilpWorld.cullFrustum()
+    // to decide whether the camera can see this chunk at all.
     this.aabb = new THREE.Box3(
       new THREE.Vector3(this.worldX, 0, this.worldZ),
       new THREE.Vector3(this.worldX + CHUNK_SIZE_X, CHUNK_SIZE_Y, this.worldZ + CHUNK_SIZE_Z)
@@ -67,11 +68,15 @@ export class ShilpChunk {
 
   /**
    * Builds greedy-meshed Three.js Mesh.
-   * 
+   *
    * @param {THREE.Material} sharedMaterial - Vertex-colored MeshLambertMaterial.
+   * @param {((wx:number, wy:number, wz:number) => number)|null} [getWorldBlock=null]
+   *   World block reader, passed straight to the mesher so it can look across
+   *   this chunk's borders into loaded neighbours and skip faces that would be
+   *   buried against them. ShilpWorld always supplies it.
    * @returns {THREE.Mesh|null}
    */
-  buildMesh(sharedMaterial) {
+  buildMesh(sharedMaterial, getWorldBlock = null) {
     if (this.isDisposed) return null;
 
     // Dispose old geometry if rebuilding
@@ -86,7 +91,8 @@ export class ShilpChunk {
       CHUNK_SIZE_Y,
       CHUNK_SIZE_Z,
       this.worldX,
-      this.worldZ
+      this.worldZ,
+      getWorldBlock
     );
 
     if (geometry.attributes.position.count === 0) {

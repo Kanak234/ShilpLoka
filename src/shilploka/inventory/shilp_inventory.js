@@ -207,6 +207,44 @@ export class ShilpInventory {
     return this.slots[this.activeSlotIndex];
   }
 
+  /**
+   * Move the stack in slot `from` onto slot `to`.
+   *
+   * WHY this exists: the inventory always had 36 slots, but only the 9-slot
+   * hotbar was ever shown, so items that overflowed into slots 10-36 (mining,
+   * barter, crafting) could never be seen or used. The inventory panel (E)
+   * uses this to bring them into the hotbar.
+   *
+   * WHAT it does:
+   *  - different items (or an empty target): the two slots swap;
+   *  - the same item: `to` fills up to the item's maxStack, and whatever
+   *    does not fit stays in `from` - so no item is ever created or lost.
+   *
+   * USED BY: ShilpInventoryPanel. NEXT: the panel re-renders itself and the
+   * engine's hotbar, and the next autosave stores the new slot layout.
+   *
+   * @param {number} from - Slot index 0-35.
+   * @param {number} to - Slot index 0-35.
+   * @returns {boolean} false when an index is out of range or they are equal.
+   */
+  moveSlot(from, to) {
+    const valid = i => Number.isInteger(i) && i >= 0 && i < this.totalSlots;
+    if (!valid(from) || !valid(to) || from === to) return false;
+    const a = this.slots[from];
+    const b = this.slots[to];
+    if (a && b && a.itemId === b.itemId) {
+      const room = SHILP_ITEMS[a.itemId].maxStack - b.count;
+      const moved = Math.min(room, a.count);
+      b.count += moved;
+      a.count -= moved;
+      if (a.count === 0) this.slots[from] = null;
+    } else {
+      this.slots[from] = b;
+      this.slots[to] = a;
+    }
+    return true;
+  }
+
   setActiveSlot(index) {
     if (index >= 0 && index < this.hotbarSlotsCount) {
       this.activeSlotIndex = index;

@@ -5,7 +5,8 @@
  * Features:
  * - Robust mobile device detection (User Agent, MaxTouchPoints, TouchEvent API & Query Overrides).
  * - Transparent on-screen floating virtual joystick for omnidirectional movement.
- * - Touch action buttons (Jump, Crouch, Place Block, Mine Block, Barter, Crafting).
+ * - Touch action buttons (Jump, Crouch, Place Block, Mine Block, Barter, Crafting,
+ *   New World, Inventory, Save, Load).
  * - Touchpad camera look rotation across the right screen quadrant.
  * - Zero external dependencies, direct coupling into PranaInput and ShilpEngine.
  */
@@ -95,6 +96,17 @@ export class VirtualTouchControls {
       <div class="mobile-quick-toolbar">
         <button id="touch-btn-barter" class="mobile-mini-btn">🏺 विनिमय (Barter)</button>
         <button id="touch-btn-craft" class="mobile-mini-btn">☸ निर्माण (Craft)</button>
+        <!-- New World on touch devices. WHY a second button: shilploka.css
+             hides the whole desktop toolbar at <=920px and on any coarse
+             pointer, so without this a phone player could never start over. -->
+        <button id="touch-btn-new-world" class="mobile-mini-btn">🌱 नया लोक</button>
+        <!-- Inventory, Save, Load on touch. WHY: E, K and L are keyboard
+             shortcuts, and the desktop toolbar is hidden on touch screens, so
+             without these a phone player had no way to reach them. Autosave
+             still runs; these are the manual versions. -->
+        <button id="touch-btn-inventory" class="mobile-mini-btn">🎒 पोटली</button>
+        <button id="touch-btn-save" class="mobile-mini-btn">💾 Save</button>
+        <button id="touch-btn-load" class="mobile-mini-btn">📂 Load</button>
       </div>
     `;
 
@@ -296,6 +308,35 @@ export class VirtualTouchControls {
         if (this.engine?.craftingModal) this.engine.craftingModal.toggle();
       }, { passive: false });
     }
+
+    // New World (touch). Delegates to the engine, which shows the confirm
+    // dialog, stops autosave, clears the save and reloads -- the exact same
+    // path as the desktop button, so the two can never behave differently.
+    const newWorldBtn = document.getElementById('touch-btn-new-world');
+    if (newWorldBtn) {
+      newWorldBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.engine?.startNewWorld) this.engine.startNewWorld();
+      }, { passive: false });
+    }
+
+    // Inventory / Save / Load (touch). Each calls the SAME engine method as
+    // its keyboard shortcut (E / K / L), so touch and keyboard cannot drift
+    // apart. touchstart + preventDefault as for the buttons above, so the tap
+    // does not also reach the camera touch zone underneath.
+    const bindTap = (id, run) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        run();
+      }, { passive: false });
+    };
+    bindTap('touch-btn-inventory', () => this.engine?.inventoryPanel?.toggle());
+    bindTap('touch-btn-save', () => this.engine?.saveGame());
+    bindTap('touch-btn-load', () => this.engine?.quickLoad());
   }
 
   destroy() {

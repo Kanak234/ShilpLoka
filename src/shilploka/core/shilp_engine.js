@@ -7,7 +7,7 @@
  * - Decoupled Glenn Fiedler dual game loop (KalaChakra) with locked 60Hz physics.
  * - Native 1:1 DPR WebGL2 rendering pipeline with Three.js.
  * - Clean cross-platform Tauri desktop packaging hooks.
- * - Pure clean-room implementation with ZERO Minecraft code or assets.
+ * - Pure clean-room implementation: all code and assets are original.
  */
 
 import * as THREE from 'three';
@@ -32,10 +32,13 @@ import { TelemetrySystem } from '../ecs/systems/telemetry_system.js';
 import { ShilpLearningCenter } from '../ui/shilp_learning_center.js';
 import { ShilpBarterModal } from '../ui/shilp_barter_modal.js';
 import { ShilpCraftingModal } from '../ui/shilp_crafting_modal.js';
+import { ShilpInventoryPanel } from '../ui/shilp_inventory_panel.js';
+import { createHotkeyHandler } from '../input/hotkeys.js';
 import { ShilpInventory, SHILP_ITEMS } from '../inventory/shilp_inventory.js';
 import { ShilpWorld } from '../world/shilp_world.js';
 import { ShilpBlockId } from '../world/voxel_constants.js';
 import { isMobileDevice, VirtualTouchControls } from '../input/virtual_joystick.js';
+import { ShilpSaveStore, randomSeed } from './shilp_save.js';
 
 
 export class ShilpEngine {
@@ -79,8 +82,35 @@ export class ShilpEngine {
     this.merchantStock = null;
     this.merchantId = null;
 
-    // 4. Procedural Voxel World (Octrees, Greedy Meshing & Ancient Indian Biomes)
-    this.world = new ShilpWorld(this.scene, { viewDistance: 2, seed: 1008 });
+    // 3b. SAVE SYSTEM - must run BEFORE the world is created.
+    // WHY the ordering: the world regenerates terrain from its seed, so it has
+    // to be built with the SAVED seed to reproduce the same land the player's
+    // edits were made on. The save store also has to exist first so each chunk
+    // can have its edits re-applied the moment it is generated.
+    // NEXT: the loaded save is used again in step 6b to restore the player,
+    // inventory and merchant, once those objects exist.
+    this.saveStore = new ShilpSaveStore();
+    this.loadedSave = this.saveStore.load();
+    const worldSeed = this.loadedSave?.seed ?? randomSeed();
+
+    // 3c. View distance, in chunks, per device.
+    // WHY different: each extra ring of chunks is more terrain to generate,
+    // mesh and draw. A radius of 4 keeps 81 chunks around a desktop player; a
+    // radius of 3 keeps 49 on a phone, whose GPU and memory are far smaller.
+    // NEXT: the same number sizes the fog in initAtmosphere(), so the fog
+    // always ends exactly where the loaded world does.
+    this.viewDistance = isMobileDevice() ? 3 : 4;
+
+    // 4. Procedural Voxel World (streaming, greedy meshing & Ancient Indian biomes)
+    this.world = new ShilpWorld(this.scene, {
+      viewDistance: this.viewDistance,
+      seed: worldSeed,
+      saveStore: this.saveStore,
+      // Resume streaming where the player actually is, not at the origin.
+      initialCenter: this.loadedSave?.player
+        ? { x: this.loadedSave.player.x, z: this.loadedSave.player.z }
+        : { x: 0, z: 0 },
+    });
     this.cullingMetrics = null;
 
     // 5. Initial Indus Valley Atmosphere & Lighting
@@ -90,6 +120,10 @@ export class ShilpEngine {
     this.spawnPlayerEntity();
     this.spawnDemonstrationHeritageMonuments();
     this.spawnDemonstrationFaunaAndNPCs();
+
+    // 6b. Restore saved player / inventory / merchant state.
+    // WHY here: these objects only exist after step 6 spawned them.
+    this._restoreFromSave(this.loadedSave);
 
     // 7. Register ECS Systems
     this.registerSystems();
@@ -145,23 +179,37 @@ export class ShilpEngine {
       }
     }
 
-    // 14. Hotbar Rendering & Keyboard Selection
-    this.renderHotbar();
-    this.handleKeyDown = (e) => {
-      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+    // 13b. Inventory panel (Potli): all 36 slots. Before this, only the 9
+    // hotbar slots were ever drawn and E did nothing.
+    // NEXT: a move inside the panel redraws the hotbar through the callback.
+    const inventoryModal = document.getElementById('inventory-modal');
+    if (inventoryModal) {
+      this.inventoryPanel = new ShilpInventoryPanel(inventoryModal, this.inventory, () => this.renderHotbar());
+      const inventoryToggleBtn = document.getElementById('inventory-toggle-btn');
+      if (inventoryToggleBtn) {
+        inventoryToggleBtn.addEventListener('click', () => this.inventoryPanel.toggle());
+      }
+    }
 
-      if (e.code === 'KeyB') {
-        if (this.barterModal) this.barterModal.toggle();
-      } else if (e.code === 'KeyC') {
-        if (this.craftingModal) this.craftingModal.toggle();
-      } else if (e.code === 'KeyH') {
-        if (this.learningCenter) this.learningCenter.toggle();
-      } else if (e.key >= '1' && e.key <= '9') {
-        const slotIdx = parseInt(e.key, 10) - 1;
+    // 14. Hotbar Rendering & Keyboard Shortcuts
+    // WHY a handler table: when a key may fire (not while typing, not with
+    // Ctrl/Cmd/Alt, not on auto-repeat) is decided in input/hotkeys.js, which
+    // has its own tests. Each entry below only says WHAT the key does.
+    // K and L were mapped in PranaInput (QUICK_SAVE / QUICK_LOAD) and E
+    // (INVENTORY_TOGGLE) too, but nothing ever handled them.
+    this.renderHotbar();
+    this.handleKeyDown = createHotkeyHandler({
+      quickSave: () => this.saveGame(),
+      quickLoad: () => this.quickLoad(),
+      toggleInventory: () => this.inventoryPanel?.toggle(),
+      toggleBarter: () => this.barterModal?.toggle(),
+      toggleCrafting: () => this.craftingModal?.toggle(),
+      toggleLearning: () => this.learningCenter?.toggle(),
+      selectSlot: (slotIdx) => {
         this.inventory.setActiveSlot(slotIdx);
         this.renderHotbar();
-      }
-    };
+      },
+    });
     window.addEventListener('keydown', this.handleKeyDown, false);
 
     // 15. Voxel Interaction & Indestructible Monument Preservation Shield
@@ -185,6 +233,9 @@ export class ShilpEngine {
     if (isMobileDevice()) {
       this.enableTouchControls();
     }
+
+    // 17. Autosave, New World button and the save toast.
+    this._initSaveSystem();
 
     // Expose engine instance for telemetry and programmatic testing
     window.__SHILPLOKA__ = this;
@@ -263,9 +314,37 @@ export class ShilpEngine {
    * Configures base atmospheric lighting and Indus Valley skybox backdrop.
    */
   initAtmosphere() {
-    const skyColor = new THREE.Color(0x87ceeb);
-    this.scene.background = skyColor;
-    this.scene.fog = new THREE.FogExp2(0x87ceeb, 0.008);
+    // ── Fog that hides the edge of the world ──────────────────────────────
+    // WHY: the world is only loaded to a fixed radius. Past that there is
+    // nothing, and without fog the player sees terrain end in a hard square
+    // edge against the sky.
+    //
+    // WHY linear Fog instead of the old FogExp2(0.008): exponential fog never
+    // reaches full opacity. From Three.js's formula
+    //   fogFactor = 1 - exp(-density^2 * depth^2)
+    // the old fog was only 23% opaque at 64 blocks - the world edge - so the
+    // terrain there was still 77% visible and the square edge showed clearly.
+    // Linear fog is 100% opaque at its `far` distance, which can be pinned
+    // exactly to the world's edge.
+    //
+    // THE NUMBERS. R = viewDistance * 16 is the distance, in blocks, to the
+    // edge of the loaded area. The nearest loaded edge is never closer than R
+    // to the player (even just after crossing into a new chunk, before the new
+    // row has streamed in). So:
+    //   far  = R * 0.95  -> fully opaque just BEFORE the nearest possible edge
+    //   near = R * 0.55  -> fog starts a little past half way, so the fade is
+    //                        gradual instead of a wall.
+    // Desktop (R=64):  fog 35 -> 61 blocks.   Mobile (R=48): fog 26 -> 46.
+    const R = this.world.viewDistance * 16;
+
+    // ONE shared Color object for both the sky and the fog. WHY: fog that does
+    // not exactly match the background shows as a coloured band at the
+    // horizon. Sharing the object (not copying the value) means any future
+    // day/night code only has to change this.skyColor and both follow.
+    this.skyColor = new THREE.Color(0x87ceeb);
+    this.scene.background = this.skyColor;
+    this.scene.fog = new THREE.Fog(this.skyColor, R * 0.55, R * 0.95);
+    this.scene.fog.color = this.skyColor;   // same instance, not a copy
 
     this.ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     this.scene.add(this.ambientLight);
@@ -273,6 +352,17 @@ export class ShilpEngine {
     this.sunLight = new THREE.DirectionalLight(0xfffae6, 1.15);
     this.sunLight.position.set(100, 200, 100);
     this.scene.add(this.sunLight);
+  }
+
+  /**
+   * Change the sky colour; the fog follows automatically.
+   * USED FOR: any future day/night cycle. There is none in the live game
+   * today, but the fog and background share one Color, so a caller can
+   * never desync them by updating only one.
+   * @param {number|string} color - Any value THREE.Color.set() accepts.
+   */
+  setSkyColor(color) {
+    this.skyColor.set(color);
   }
 
   /**
@@ -418,13 +508,18 @@ export class ShilpEngine {
    * @param {number} alpha - Fixed-step interpolation factor [0.0, 1.0).
    */
   _process(delta, alpha) {
-    // 1. Dynamic Chunk Streaming around active player position
+    // 1. Chunk streaming around the player.
+    //    updateStreaming() is cheap to call every frame: it returns at once
+    //    unless the player has crossed into a new chunk.
+    //    processStreamingQueue() then builds at most two chunks, so walking
+    //    into new terrain never stalls a frame.
     const transform = this.ecs.getComponent(this.playerEntityId, 'Transform');
     if (transform) {
       this.world.updateStreaming(transform.position.x, transform.position.z);
     }
+    this.world.processStreamingQueue();
 
-    // 2. Hierarchical Octree Frustum Culling O(log N)
+    // 2. Frustum culling: hide chunks outside the camera's view.
     this.cullingMetrics = this.world.cullFrustum(this.camera);
 
     // 3. Fast Amanatides-Woo Voxel Traversal for block targeting
@@ -492,11 +587,296 @@ export class ShilpEngine {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════ SAVE SYSTEM
+
+  /**
+   * Gather everything that goes into a save (except the block edits, which
+   * the save store already holds).
+   * USED BY: saveGame(). NEXT: ShilpSaveStore.serialize() turns it into JSON.
+   */
+  _collectSaveState() {
+    const transform = this.ecs.getComponent(this.playerEntityId, 'Transform');
+    const rig = this.ecs.getComponent(this.playerEntityId, 'CameraRig');
+    return {
+      seed: this.world.seed,
+      player: transform
+        ? {
+            x: transform.position.x,
+            y: transform.position.y,
+            z: transform.position.z,
+            yaw: rig?.yaw ?? 0,
+            pitch: rig?.pitch ?? 0,
+          }
+        : null,
+      inventory: {
+        activeSlotIndex: this.inventory.activeSlotIndex,
+        // Copy the slots so later inventory changes cannot mutate the snapshot.
+        slots: this.inventory.slots.map(s => (s ? { itemId: s.itemId, count: s.count } : null)),
+      },
+      // Shallow copy for the same reason.
+      merchantStock: this.merchantStock ? { ...this.merchantStock } : null,
+    };
+  }
+
+  /**
+   * Put a loaded save back into the running game.
+   * CALLED ONCE at startup, after the player, inventory and merchant exist.
+   *
+   * @param {Object|null} save - Output of ShilpSaveStore.load(); null = new world.
+   */
+  _restoreFromSave(save) {
+    if (!save) return;
+
+    // Player position AND previousPosition. WHY both: the camera interpolates
+    // between the two. Restoring only `position` would make the view visibly
+    // glide from the spawn point to the saved spot over the first frames.
+    const transform = this.ecs.getComponent(this.playerEntityId, 'Transform');
+    if (transform && save.player) {
+      transform.position.set(save.player.x, save.player.y, save.player.z);
+      transform.previousPosition.copy(transform.position);
+      // Drop any momentum from the spawn frame.
+      const kin = this.ecs.getComponent(this.playerEntityId, 'Kinematics');
+      if (kin) kin.velocity.set(0, 0, 0);
+    }
+    const rig = this.ecs.getComponent(this.playerEntityId, 'CameraRig');
+    if (rig && save.player) {
+      rig.yaw = save.player.yaw ?? rig.yaw;
+      rig.pitch = save.player.pitch ?? rig.pitch;
+    }
+
+    // Inventory: rebuilt through setSlot() so every saved stack is re-validated
+    // against the item registry and max stack sizes (a corrupted or edited save
+    // cannot inject an unknown item or an oversized stack).
+    if (save.inventory?.slots) {
+      for (let i = 0; i < this.inventory.totalSlots; i++) {
+        const slot = save.inventory.slots[i];
+        this.inventory.setSlot(i, slot?.itemId ?? null, slot?.count ?? 0);
+      }
+      this.inventory.setActiveSlot(save.inventory.activeSlotIndex ?? 0);
+    }
+
+    // Merchant stock: mutated IN PLACE, never replaced. WHY: the same object is
+    // shared by reference with the barter modal and the NPC's ECS component.
+    // Assigning a new object here would leave the modal trading from a stale
+    // copy and the barter changes would silently stop being saved.
+    if (save.merchantStock && this.merchantStock) {
+      Object.assign(this.merchantStock, save.merchantStock);
+    }
+  }
+
+  /**
+   * Write the game to storage and tell the player how it went.
+   * CALLED BY: the 30 s autosave timer, the tab going hidden, page unload.
+   *
+   * @param {{quiet?: boolean}} [opts] - quiet: no "Saved" toast. Used on
+   *   unload, where the page is closing and there is no one to show it to.
+   * @returns {{ok:boolean, bytes:number, tooLarge:boolean}}
+   */
+  saveGame({ quiet = false } = {}) {
+    const result = this.saveStore.save(this._collectSaveState());
+    if (quiet) return result;
+
+    if (!result.ok && this.saveStore.writeBlocked) {
+      // Saving is paused ON PURPOSE: the slot holds an unreadable save that
+      // could not be backed up, and writing would destroy it (see load()).
+      this._showSaveToast('⚠ Not saved — protecting your old save. Use 🌱 New World to start saving again', true);
+    } else if (!result.ok) {
+      this._showSaveToast('⚠ Could not save — browser storage is full or blocked', true);
+    } else if (result.tooLarge) {
+      const mb = (result.bytes / (1024 * 1024)).toFixed(1);
+      this._showSaveToast(`⚠ Saved, but the world is large (${mb} MB) — near the browser limit`, true);
+    } else {
+      this._showSaveToast('Saved ✓');
+    }
+    return result;
+  }
+
+  /**
+   * Autosave triggers, New World button, and toast element lookup.
+   * CALLED ONCE from the constructor.
+   */
+  _initSaveSystem() {
+    this.saveToast = document.getElementById('save-toast');
+    this.saveToastTimer = null;
+
+    if (!this.saveStore.available) {
+      // Private browsing or storage disabled: say so once instead of
+      // pretending to save every 30 seconds.
+      this._showSaveToast('⚠ Saving is unavailable in this browser mode', true);
+      return;
+    }
+
+    // A save existed but could not be opened (damaged, or from a newer build).
+    // Tell the player what happened and where their data went, instead of
+    // silently starting a new world over it. The explanation is long, so it
+    // stays up for 12 s.
+    const issue = this.saveStore.loadIssue;
+    if (issue) {
+      const what = issue.reason === 'newer'
+        ? `Your save is from a newer version of ShilpLoka (v${issue.version}) and can't be opened here.`
+        : "Your save couldn't be read (it may be damaged).";
+      const where = issue.backupKey
+        ? ' It was kept safely as a backup; this is a new world.'
+        : ' Browser storage is full, so it could not be backed up: saving is paused to protect it. 🌱 New World deletes it and starts saving again.';
+      this._showSaveToast(`⚠ ${what}${where}`, true, 12_000);
+    }
+
+    // (a) Every 30 s. WHY 30: frequent enough that a crash loses little work,
+    // rare enough that the JSON.stringify cost is never felt.
+    // quiet while writeBlocked: the startup warning already explained why
+    // nothing is being saved; repeating it every 30 s would be noise.
+    this.autosaveInterval = setInterval(
+      () => this.saveGame({ quiet: this.saveStore.writeBlocked }),
+      30_000
+    );
+
+    // (b) When the tab is hidden. WHY: on mobile, switching apps or locking
+    // the screen often KILLS the page without ever firing beforeunload.
+    // visibilitychange is the last event such a page reliably gets.
+    this.handleVisibility = () => {
+      if (document.visibilityState === 'hidden') this.saveGame({ quiet: true });
+    };
+    document.addEventListener('visibilitychange', this.handleVisibility);
+
+    // (c) On close / refresh on desktop.
+    this.handleBeforeUnload = () => this.saveGame({ quiet: true });
+    window.addEventListener('beforeunload', this.handleBeforeUnload);
+
+    // New World: destructive, so it always asks first.
+    const newWorldBtn = document.getElementById('new-world-btn');
+    if (newWorldBtn) {
+      newWorldBtn.addEventListener('click', () => this.startNewWorld());
+    }
+  }
+
+  /**
+   * Quick load (L, or the mobile 📂 button): go back to the last save.
+   *
+   * WHY in place rather than reloading the page: a reload regenerates all 81
+   * chunks and restarts the engine - seconds of blank screen for what is
+   * usually "undo the last few minutes". Only chunks whose edits differ
+   * between the running game and the save can look different, so only those
+   * are rebuilt (see ShilpWorld.refreshChunks).
+   *
+   * No confirmation: the most it can discard is what changed since the last
+   * save, and the autosave runs every 30 s.
+   *
+   * @returns {boolean} true when a save was loaded.
+   */
+  quickLoad() {
+    if (!this.saveStore.available) {
+      this._showSaveToast('⚠ Saving is unavailable in this browser mode', true);
+      return false;
+    }
+    // Chunks the RUNNING game has edits in. Captured before load(), because
+    // load() replaces the diff; a chunk edited since the save must be rebuilt
+    // too, or the newer edit would stay on screen.
+    const touched = new Set(this.saveStore.diffs.keys());
+
+    const data = this.saveStore.load();
+    if (!data) {
+      if (this.saveStore.loadIssue) {
+        // The slot holds something unreadable. load() has already backed it
+        // up (or blocked saving); the running world and its edits are untouched.
+        this._showSaveToast("⚠ The save couldn't be read. It was kept as a backup; nothing was loaded.", true, 8000);
+      } else {
+        this._showSaveToast('No save yet — press K to save');
+      }
+      return false;
+    }
+
+    if (data.seed !== this.world.seed) {
+      // A save of a DIFFERENT world (e.g. New World pressed in another tab).
+      // Its terrain must be regenerated from its own seed, which is exactly
+      // what startup does, so reload. Autosave is stopped first: otherwise the
+      // unload handler would write this world's state over that save.
+      this._stopAutosave();
+      window.location.reload();
+      return true;
+    }
+
+    for (const key of this.saveStore.diffs.keys()) touched.add(key);
+    this.world.refreshChunks(touched);
+    this._restoreFromSave(data);
+
+    // The player may now stand in a different chunk: stream around the saved
+    // spot, and build the ground under them before the next physics step.
+    const t = this.ecs.getComponent(this.playerEntityId, 'Transform');
+    if (t) {
+      this.world.updateStreaming(t.position.x, t.position.z, true);
+      this.world.processStreamingQueue(9);
+    }
+    this.renderHotbar();
+    if (this.inventoryPanel?.isOpen) this.inventoryPanel.render();
+
+    const secs = Math.max(0, Math.round((Date.now() - (data.savedAt ?? Date.now())) / 1000));
+    const ago = secs < 60 ? `${secs} s` : `${Math.round(secs / 60)} min`;
+    this._showSaveToast(`Loaded ✓ (saved ${ago} ago)`);
+    return true;
+  }
+
+  /**
+   * Stop every autosave trigger.
+   * USED BY: startNewWorld() and quickLoad()'s cross-world reload - both
+   * reload the page, and the beforeunload autosave would otherwise write the
+   * world being left over the save that is about to be opened.
+   */
+  _stopAutosave() {
+    clearInterval(this.autosaveInterval);
+    window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    document.removeEventListener('visibilitychange', this.handleVisibility);
+  }
+
+  /**
+   * Discard the saved world and reload into a fresh random seed.
+   * WHY a page reload rather than rebuilding in place: the world, every chunk
+   * mesh, the ECS entities and the streaming queues would all need tearing down. A
+   * reload does that completely and cannot leave half-disposed state behind.
+   */
+  startNewWorld() {
+    const ok = window.confirm(
+      'Start a new world?\n\nYour current world and everything you have built ' +
+      'in it will be permanently deleted.'
+    );
+    if (!ok) return;
+
+    // Stop the autosave and unload handlers first, or they would immediately
+    // write the OLD world back into storage during the reload.
+    this._stopAutosave();
+
+    this.saveStore.clear();
+    window.location.reload();
+  }
+
+  /**
+   * Show the save toast briefly.
+   * @param {string} text
+   * @param {boolean} [warn=false] - Terracotta warning style.
+   * @param {number} [ms] - How long to show it. Defaults: 6 s warn, 1.6 s ok.
+   */
+  _showSaveToast(text, warn = false, ms = warn ? 6000 : 1600) {
+    if (!this.saveToast) return;
+    this.saveToast.textContent = text;
+    this.saveToast.classList.toggle('warn', warn);
+    this.saveToast.classList.remove('hidden');
+    if (this.saveToastTimer) clearTimeout(this.saveToastTimer);
+    // Warnings stay up longer: they need reading, "Saved ✓" only a glance.
+    this.saveToastTimer = setTimeout(
+      () => this.saveToast.classList.add('hidden'),
+      ms
+    );
+  }
+
   /**
    * Cleanly disposes engine resources, ECS tables, and terminates loops.
    */
   destroy() {
     this.timeWheel.stop();
+    // Stop autosaving; leaving these registered would keep writing to storage
+    // from a destroyed engine.
+    if (this.autosaveInterval) clearInterval(this.autosaveInterval);
+    if (this.handleVisibility) document.removeEventListener('visibilitychange', this.handleVisibility);
+    if (this.handleBeforeUnload) window.removeEventListener('beforeunload', this.handleBeforeUnload);
     this.input.unbind_listeners();
     window.removeEventListener('resize', this.handleResize);
     if (this.handleKeyDown) window.removeEventListener('keydown', this.handleKeyDown);

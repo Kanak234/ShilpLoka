@@ -41,9 +41,11 @@ jobs:
       # Syntax-check verification scripts without launching a browser or server.
       # This catches accidental JavaScript syntax regressions while keeping CI
       # independent of a workstation-specific Edge installation.
+      # verify.js is no longer listed: it tested the legacy engine
+      # (window.__GAME__ from src/main.js), which was removed, and it had
+      # already been failing against the live game on main.
       - name: Validate JavaScript syntax
         run: |
-          node --check verify.js
           for file in verify_*.js; do
             [ -e "$file" ] || continue
             node --check "$file"
