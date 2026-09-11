@@ -26,4 +26,32 @@ export default defineConfig({
       },
     },
   },
+  test: {
+    testTimeout: 30000,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: [
+        'src/noise.js',
+        'src/core/vastu_grid.js',
+        'src/core/kala_chakra.js',
+        'src/shilploka/core/shilp_save.js',
+        'src/shilploka/economy/**/*.js',
+        'src/shilploka/ecs/ecs_registry.js',
+        'src/shilploka/ecs/components.js',
+        'src/shilploka/input/hotkeys.js',
+        'src/shilploka/inventory/**/*.js',
+        'src/shilploka/world/**/*.js',
+        'scripts/vite_legacy_entry.js',
+      ],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        statements: 80,
+        branches: 80,
+      },
+    },
+  },
 });
+
+

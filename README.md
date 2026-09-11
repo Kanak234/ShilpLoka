@@ -1,5 +1,10 @@
 # ShilpLoka (शिल्पलोक)
 
+[![CI](https://github.com/Kanak234/ShilpLoka/actions/workflows/ci.yml/badge.svg)](https://github.com/Kanak234/ShilpLoka/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Kanak234/ShilpLoka/actions/workflows/codeql.yml/badge.svg)](https://github.com/Kanak234/ShilpLoka/actions/workflows/codeql.yml)
+[![Coverage](https://img.shields.io/badge/coverage-90.7%25-brightgreen.svg)](https://github.com/Kanak234/ShilpLoka)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 An Ancient-Indian-themed voxel sandbox: build with Harappan baked bricks, trade
 spices with Dhanapati the merchant by barter, craft at the Vedic altar, and walk
 among banyan and peepal trees around an indestructible Ashoka Sthambha. Built
@@ -12,6 +17,17 @@ into a single self-contained HTML file.
 npm ci
 npm run dev        # http://localhost:5173
 ```
+
+### Docker (Production Container)
+
+Run the hardened multi-stage Nginx container:
+
+```bash
+docker build -t shilploka:latest .
+docker run -d -p 8080:8080 --name shilploka shilploka:latest
+# Open http://localhost:8080
+```
+
 
 Click the game to lock the mouse, then:
 

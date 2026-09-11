@@ -16,15 +16,17 @@
     "build:all": "node scripts/build_all.js",
     "verify": "node verify_shilploka_step3.js",
     "verify:all": "node verify_shilploka_step1.js && node verify_shilploka_step2.js && node verify_shilploka_step3.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "three": "^0.185.1",
     "vite": "^8.2.2"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^5.0.0",
+    "puppeteer-core": "^24.43.1",
     "vite-plugin-singlefile": "^2.3.3",
-    "vitest": "^5.0.0",
-    "puppeteer-core": "^24.43.1"
+    "vitest": "^5.0.0"
   }
 }
