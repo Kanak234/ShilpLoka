@@ -1,11 +1,8 @@
 name: CI
 
-# This workflow validates the ShilpLoka web build without changing the game code.
-# Browser gameplay verification remains a separate optional step because the local
-# verification script expects a specific Microsoft Edge executable path.
 on:
   push:
-    branches: [main]
+    branches: [main, prod-hardening]
   pull_request:
     branches: [main]
 
@@ -16,8 +13,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Build from the committed source and lockfile so the CI result matches
-      # the dependencies selected by the project rather than a fresh resolution.
       - name: Check out source
         uses: actions/checkout@v4
 
@@ -27,26 +22,30 @@ jobs:
           node-version: 20
           cache: npm
 
-      # npm ci is deterministic and avoids mutating package-lock.json in CI.
       - name: Install dependencies
         run: npm ci
 
-      # This is the repository's existing deployable web build command.
       - name: Build web application
         run: npm run build
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests with coverage
+        run: npm run test:coverage
 
-      # Syntax-check verification scripts without launching a browser or server.
-      # This catches accidental JavaScript syntax regressions while keeping CI
-      # independent of a workstation-specific Edge installation.
-      # verify.js is no longer listed: it tested the legacy engine
-      # (window.__GAME__ from src/main.js), which was removed, and it had
-      # already been failing against the live game on main.
       - name: Validate JavaScript syntax
         run: |
           for file in verify_*.js; do
             [ -e "$file" ] || continue
             node --check "$file"
           done
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and smoke-test Docker container
+        run: |
+          docker build -t shilploka:local .
+          docker run -d --name test-container -p 8080:8080 shilploka:local
+          sleep 4
+          curl -fsS http://localhost:8080/ > /dev/null
+          docker stop test-container
+          docker rm test-container
