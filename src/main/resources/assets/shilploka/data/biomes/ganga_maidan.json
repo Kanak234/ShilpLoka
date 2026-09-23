@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:ganga_maidan",
+  "name": {"en": "Ganga Maidan", "hi": "गंगा मैदान"},
+  "vertexColor": {"r": 150, "g": 200, "b": 120},
+  "temperature": 0.6,
+  "rainfall": 0.9,
+  "groundCover": "grass",
+  "topBlock": "grass",
+  "fillerBlock": "dirt",
+  "spawns": {
+    "animals": ["cow", "goat", "elephant"],
+    "monsters": ["tiger"],
+    "water": ["river_dolphin"]
+  },
+  "specialFeatures": ["river_banks", "villages"],
+  "weatherWeight": {
+    "monsoon": 1.8,
+    "dust_storm": 0.0,
+    "snow": 0.0
+  }
+}

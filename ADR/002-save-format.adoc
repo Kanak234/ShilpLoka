@@ -1,0 +1,22 @@
+ADR 002: Save Format Versioning
+------------------------------
+Status: Proposed (P0 baseline)
+Date: 2026-09-23
+Decision: Save format includes a `version` field in level.json from day one, with a
+migration hook for upgrading older saves. Format version increments on breaking changes.
+Context: Prevents world corruption when upgrading game versions. Atomic rename (write to temp
+then rename) ensures save integrity on crash. Backup of last save on world open provides
+rollback safety.
+Consequences:
+- + Upgrade path from day one; no accidental world loss on game update
+- + Atomic write prevents corruption if crash during save
+- + Automatic backup on world open gives user recovery option
+- - Requires version migration code maintenance as format evolves
+- - Slightly more complex load path (read version → apply migration)
+
+Migration hooks planned:
+- v1 → v2: add new block IDs, update light format (non-breaking if new blocks use
+  reserved ID space)
+- v1 → v3: add biome per-chunk (breaking; requires migration tool)
+
+Tags: #save #format #version #atomic #migration

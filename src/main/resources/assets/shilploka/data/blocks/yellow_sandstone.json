@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:yellow_sandstone",
+  "type": "stone",
+  "material": "sandstone",
+  "hardness": 2.0,
+  "resistance": 5.0,
+  "sound": "sandstone",
+  "lightValue": 0,
+  "mapColor": {"r": 233, "g": 205, "b": 131},
+  "isCollidable": true,
+  "isTransparent": false,
+  "textures": {
+    "side": "block/yellow_sandstone",
+    "top": "block/yellow_sandstone_top",
+    "bottom": "block/yellow_sandstone_bottom"
+  },
+  "categories": ["building"],
+  "requiresTool": false,
+  "toolSpeed": 1.0,
+  "harvestLevel": 0
+}

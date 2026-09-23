@@ -1,0 +1,11 @@
+{
+  "id": "shilploka:codex_harappan_town",
+  "era": "Sindhu-Saraswati",
+  "unlockCondition": "discover harappan_town_structure",
+  "entries": [
+    {"en": "Harappan grid towns featured organized streets and drainage systems circa 2600 BCE.", "hi": "हड़प्पा नगरों में लगभग 2600 BCE में संगठित सड़कें और जल निकासी प्रणाली थीं।"},
+    {"en": "The Great Bath at Mohenjo-daro was a large public water tank used for ritual bathing.", "hi": "मोहनजोदरो की बड़ी स्नान कुण्ड धार्मिक स्नान के लिए बड़े जल टैंक थीं।"}
+  ],
+  "relatedBlocks": ["harappan_brick", "mortar"],
+  "relatedItems": ["copper_seal", "palm_leaf_manuscript"]
+}

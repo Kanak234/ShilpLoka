@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:sagar",
+  "name": {"en": "Sagar", "hi": "सागर"},
+  "vertexColor": {"r": 30, "g": 60, "b": 120},
+  "temperature": 0.3,
+  "rainfall": 1.0,
+  "groundCover": "water",
+  "topBlock": "water",
+  "fillerBlock": "sand",
+  "spawns": {
+    "animals": [],
+    "monsters": [],
+    "water": ["fish", "flamingo"]
+  },
+  "specialFeatures": ["shipwrecks", "coral"],
+  "weatherWeight": {
+    "monsoon": 1.0,
+    "dust_storm": 0.0,
+    "snow": 0.0
+  }
+}

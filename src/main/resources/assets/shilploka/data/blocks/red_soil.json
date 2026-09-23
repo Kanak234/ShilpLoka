@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:red_soil",
+  "type": "soil",
+  "material": "soil",
+  "hardness": 0.5,
+  "resistance": 0.0,
+  "sound": "soil",
+  "lightValue": 0,
+  "mapColor": {"r": 150, "g": 80, "b": 30},
+  "isCollidable": true,
+  "isTransparent": false,
+  "textures": {
+    "side": "block/red_soil",
+    "top": "block/red_soil_top",
+    "bottom": "block/red_soil_bottom"
+  },
+  "categories": ["building"],
+  "requiresTool": false,
+  "toolSpeed": 1.0,
+  "harvestLevel": 0
+}

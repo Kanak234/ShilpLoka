@@ -1,0 +1,5 @@
+{
+  "type": "shapeless",
+  "ingredients": ["shilploka:wheat", "shilploka:wheat"],
+  "result": {"item": "shilploka:roti", "count": 1}
+}

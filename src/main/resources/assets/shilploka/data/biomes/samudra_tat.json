@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:samudra_tat",
+  "name": {"en": "Samudra Tat", "hi": "समुद्र तट"},
+  "vertexColor": {"r": 100, "g": 150, "b": 200},
+  "temperature": 0.7,
+  "rainfall": 0.8,
+  "groundCover": "sand",
+  "topBlock": "sand",
+  "fillerBlock": "dirt",
+  "spawns": {
+    "animals": ["fish"],
+    "monsters": ["crocodile"],
+    "water": ["fish"]
+  },
+  "specialFeatures": ["beach", "coconut_palms"],
+  "weatherWeight": {
+    "monsoon": 1.5,
+    "dust_storm": 0.0,
+    "snow": 0.0
+  }
+}

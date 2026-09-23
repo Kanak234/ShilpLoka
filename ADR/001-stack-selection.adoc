@@ -1,0 +1,18 @@
+ADR 001: Game Stack Selection
+-----------------------------
+Status: Proposed (awaiting Kanak approval Q2)
+Date: 2026-09-23
+Decision: Use Java 21 (LTS) + LWJGL 3 custom engine vs libGDX or jMonkeyEngine.
+Context: The project requires fine-grained control over voxel engine features (greedy meshing,
+precise light propagation, custom save format). LWJGL 3 provides direct OpenGL 3.3 Core access
+without the abstraction overhead of higher-level engines.
+Consequences:
+- + Full control over rendering pipeline, chunk storage, and save format
+- + Smaller runtime footprint (no engine abstraction layer)
+- - More boilerplate code for window/context/setup (vs libGDX)
+- - No built-in scene graph or asset management (must build custom)
+- - Team needs LWJGL 3 expertise
+- If switching to libGDX later: would need to rewrite rendering pipeline, but data-driven
+  content (JSON registries) would remain compatible.
+
+Tags: #stack #engine #lwjgl #java21

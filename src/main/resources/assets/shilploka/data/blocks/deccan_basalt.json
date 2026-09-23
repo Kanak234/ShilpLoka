@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:deccan_basalt",
+  "type": "stone",
+  "material": "basalt",
+  "hardness": 4.0,
+  "resistance": 6.0,
+  "sound": "stone",
+  "lightValue": 0,
+  "mapColor": {"r": 50, "g": 50, "b": 50},
+  "isCollidable": true,
+  "isTransparent": false,
+  "textures": {
+    "side": "block/deccan_basalt",
+    "top": "block/deccan_basalt_top",
+    "bottom": "block/deccan_basalt_bottom"
+  },
+  "categories": ["building"],
+  "requiresTool": false,
+  "toolSpeed": 1.0,
+  "harvestLevel": 1
+}

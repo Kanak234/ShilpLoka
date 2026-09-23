@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:raan_namak",
+  "name": {"en": "Rann Namak", "hi": "रण नामक"},
+  "vertexColor": {"r": 220, "g": 220, "b": 220},
+  "temperature": 0.9,
+  "rainfall": 0.0,
+  "groundCover": "salt",
+  "topBlock": "salt",
+  "fillerBlock": "sand",
+  "spawns": {
+    "animals": ["flamingo"],
+    "monsters": ["crocodile"],
+    "water": []
+  },
+  "specialFeatures": ["salt_flats"],
+  "weatherWeight": {
+    "monsoon": 0.1,
+    "dust_storm": 1.5,
+    "snow": 0.0
+  }
+}

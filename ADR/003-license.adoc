@@ -1,0 +1,27 @@
+ADR 003: Game Code License
+-------------------------
+Status: Decision pending (Open Question Q5)
+Date: 2026-09-23
+Decision: License for the ShilpLoka Java source code to be chosen from:
+  Option A: Proprietary — all rights reserved; itch.io single-player game model.
+  Option B: MIT License — permissive, commercial-friendly, allows closed-source
+    derivatives but requires copyright notice and disclaimer.
+  Option C: GPLv3 — copyleft; derivative works must also be GPL (conflicts with
+    intent to sell on itch.io as closed source).
+Context: Affects how the source can be forked, modified, or used in derivative projects.
+The game uses third-party libraries with their own licenses (LWJGL: Apache 2.0,
+JOML: MIT, Jackson: Apache 2.0, JUnit: EPL 2.0).
+Consequences:
+- Option A (Proprietary): Source not publicly hosted; users cannot fork or modify
+  the code. Fits itch.io single-player game model. Most restrictive for users but
+  most control for developer.
+- Option B (MIT): Source publicly hostable (GitHub, GitLab). Users can fork and
+  modify. Commercial derivatives allowed without copyleft. Attribution required.
+  Fits the "learning engine" mission statement of the project.
+- Option C (GPLv3): Not recommended. Would require source distribution with any
+  redistribution of the game binary, conflicting with itch.io distribution model.
+  Only choose if the project intends to be a fully open-source engine from day one.
+
+Decision pending Kanak's answer to Open Question Q5 ("License for game code").
+
+Tags: #license #legal #copyright #mit #gpl #proprietary

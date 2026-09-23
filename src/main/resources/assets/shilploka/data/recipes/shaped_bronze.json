@@ -1,0 +1,11 @@
+{
+  "type": "shaped",
+  "pattern": ["LL", "LL"],
+  "width": 2,
+  "height": 2,
+  "key": {
+    "L": {"item": "shilploka:log"},
+    "T": {"item": "shilploka:tin_ingot"}
+  },
+  "result": {"item": "shilploka:bronze_ingot", "count": 1}
+}

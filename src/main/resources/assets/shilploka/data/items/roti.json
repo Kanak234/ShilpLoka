@@ -1,0 +1,14 @@
+{
+  "id": "shilploka:roti",
+  "stackSize": 16,
+  "maxStackSize": 16,
+  "renderType": "3d",
+  "heldIcon": "item/roti",
+  "foodProperties": {"nutrition": 5, "saturation": 0.6, "alwaysEdible": false},
+  "toolClass": null,
+  "harvestLevel": 0,
+  "attackDamage": 0,
+  "enchantability": 0,
+  "depth": 0,
+  "category": "food"
+}

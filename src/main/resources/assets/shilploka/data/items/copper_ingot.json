@@ -1,0 +1,14 @@
+{
+  "id": "shilploka:copper_ingot",
+  "stackSize": 64,
+  "maxStackSize": 64,
+  "renderType": "3d",
+  "heldIcon": "item/copper_ingot",
+  "foodProperties": null,
+  "toolClass": null,
+  "harvestLevel": 0,
+  "attackDamage": 0,
+  "enchantability": 0,
+  "depth": 0,
+  "category": "misc"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:terai_van",
+  "name": {"en": "Terai Van", "hi": "तराई वन"},
+  "vertexColor": {"r": 100, "g": 180, "b": 60},
+  "temperature": 0.9,
+  "rainfall": 1.0,
+  "groundCover": "grass",
+  "topBlock": "grass",
+  "fillerBlock": "dirt",
+  "spawns": {
+    "animals": ["water_buffalo", "goat", "sheep"],
+    "monsters": ["tiger", "cobra"],
+    "water": ["river_dolphin"]
+  },
+  "specialFeatures": ["dense_forest", "sal_groves"],
+  "weatherWeight": {
+    "monsoon": 2.0,
+    "dust_storm": 0.05,
+    "snow": 0.0
+  }
+}

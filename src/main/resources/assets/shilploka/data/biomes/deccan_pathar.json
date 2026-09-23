@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:deccan_pathar",
+  "name": {"en": "Deccan Pathar", "hi": "दक्कन पथर"},
+  "vertexColor": {"r": 80, "g": 80, "b": 80},
+  "temperature": 0.7,
+  "rainfall": 0.4,
+  "groundCover": "black_soil",
+  "topBlock": "grass",
+  "fillerBlock": "dirt",
+  "spawns": {
+    "animals": ["goat", "wolf"],
+    "monsters": ["bear"],
+    "water": []
+  },
+  "specialFeatures": ["rock_caves", "cotton_fields"],
+  "weatherWeight": {
+    "monsoon": 0.8,
+    "dust_storm": 0.3,
+    "snow": 0.0
+  }
+}

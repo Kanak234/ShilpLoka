@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:sundarban",
+  "name": {"en": "Sundarban", "hi": "सुंदरवन"},
+  "vertexColor": {"r": 80, "g": 120, "b": 60},
+  "temperature": 0.8,
+  "rainfall": 1.0,
+  "groundCover": "mud",
+  "topBlock": "mud",
+  "fillerBlock": "sand",
+  "spawns": {
+    "animals": ["crocodile", "tiger"],
+    "monsters": ["cobra"],
+    "water": []
+  },
+  "specialFeatures": ["mangroves", "tidal_water"],
+  "weatherWeight": {
+    "monsoon": 2.5,
+    "dust_storm": 0.0,
+    "snow": 0.0
+  }
+}

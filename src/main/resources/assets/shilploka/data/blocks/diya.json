@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:diya",
+  "type": "functional",
+  "material": "clay",
+  "hardness": 1.0,
+  "resistance": 2.0,
+  "sound": "clay",
+  "lightValue": 15,
+  "mapColor": {"r": 210, "g": 80, "b": 30},
+  "isCollidable": true,
+  "isTransparent": false,
+  "textures": {
+    "side": "block/diya_side",
+    "top": "block/diya_top",
+    "bottom": "block/diya_bottom"
+  },
+  "categories": ["lighting"],
+  "requiresTool": false,
+  "toolSpeed": 1.0,
+  "harvestLevel": 0
+}

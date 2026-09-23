@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:sahyadri_varshavan",
+  "name": {"en": "Sahyadri Varshavan", "hi": "सायाद्री वर्षावन"},
+  "vertexColor": {"r": 50, "g": 150, "b": 80},
+  "temperature": 0.7,
+  "rainfall": 1.0,
+  "groundCover": "moss",
+  "topBlock": "grass",
+  "fillerBlock": "dirt",
+  "spawns": {
+    "animals": ["hornbill", "deer"],
+    "monsters": ["cobra"],
+    "water": []
+  },
+  "specialFeatures": ["waterfalls", "monsoon_heavy"],
+  "weatherWeight": {
+    "monsoon": 3.0,
+    "dust_storm": 0.0,
+    "snow": 0.0
+  }
+}

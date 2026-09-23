@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:himalaya_shikhar",
+  "name": {"en": "Himalaya Shikhar", "hi": "हिमालय शिखर"},
+  "vertexColor": {"r": 180, "g": 200, "b": 255},
+  "temperature": 0.2,
+  "rainfall": 0.8,
+  "groundCover": "pine_needles",
+  "topBlock": "snow",
+  "fillerBlock": "ice",
+  "spawns": {
+    "animals": ["yak", "deer", "elephant"],
+    "monsters": ["snow_leopard", "wolf"],
+    "water": ["river_dolphin"]
+  },
+  "specialFeatures": ["monasteries", "glaciers"],
+  "weatherWeight": {
+    "monsoon": 1.5,
+    "dust_storm": 0.1,
+    "snow": 2.0
+  }
+}

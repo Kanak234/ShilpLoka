@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:red_sandstone",
+  "type": "stone",
+  "material": "sandstone",
+  "hardness": 2.0,
+  "resistance": 5.0,
+  "sound": "sandstone",
+  "lightValue": 0,
+  "mapColor": {"r": 210, "g": 160, "b": 100},
+  "isCollidable": true,
+  "isTransparent": false,
+  "textures": {
+    "side": "block/red_sandstone",
+    "top": "block/red_sandstone_top",
+    "bottom": "block/red_sandstone_bottom"
+  },
+  "categories": ["building"],
+  "requiresTool": false,
+  "toolSpeed": 1.0,
+  "harvestLevel": 0
+}

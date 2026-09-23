@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:thar_marusthal",
+  "name": {"en": "Thar Marusthal", "hi": "थार मरुस्थल"},
+  "vertexColor": {"r": 230, "g": 180, "b": 120},
+  "temperature": 1.0,
+  "rainfall": 0.1,
+  "groundCover": "desert_sand",
+  "topBlock": "sand",
+  "fillerBlock": "sand",
+  "spawns": {
+    "animals": ["camel", "wolf"],
+    "monsters": ["cobra", "daaku"],
+    "water": []
+  },
+  "specialFeatures": ["desert_forts", "stepwells"],
+  "weatherWeight": {
+    "monsoon": 0.5,
+    "dust_storm": 2.0,
+    "snow": 0.0
+  }
+}

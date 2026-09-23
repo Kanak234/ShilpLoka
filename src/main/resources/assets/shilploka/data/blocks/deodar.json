@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:deodar",
+  "type": "wood",
+  "material": "wood",
+  "hardness": 2.0,
+  "resistance": 3.0,
+  "sound": "wood",
+  "lightValue": 0,
+  "mapColor": {"r": 139, "g": 90, "g": 40},
+  "isCollidable": true,
+  "isTransparent": false,
+  "textures": {
+    "side": "block/deodar_log",
+    "top": "block/deodar_log_top",
+    "bottom": "block/deodar_log_bottom"
+  },
+  "categories": ["building"],
+  "requiresTool": false,
+  "toolSpeed": 1.0,
+  "harvestLevel": 0
+}

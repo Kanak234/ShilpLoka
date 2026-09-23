@@ -1,0 +1,21 @@
+{
+  "id": "shilploka:poorvottar_baans",
+  "name": {"en": "Poorvottar Baans", "hi": "पूर्वोत्तर बांस"},
+  "vertexColor": {"r": 150, "g": 200, "b": 50},
+  "temperature": 0.5,
+  "rainfall": 1.0,
+  "groundCover": "grass",
+  "topBlock": "grass",
+  "fillerBlock": "dirt",
+  "spawns": {
+    "animals": ["red_panda", "deer"],
+    "monsters": ["cobra"],
+    "water": []
+  },
+  "specialFeatures": ["bamboo_hills", "living_root_bridges"],
+  "weatherWeight": {
+    "monsoon": 2.5,
+    "dust_storm": 0.0,
+    "snow": 0.0
+  }
+}

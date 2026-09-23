@@ -1,0 +1,14 @@
+{
+  "id": "shilploka:stone_pickaxe",
+  "stackSize": 1,
+  "maxStackSize": 1,
+  "renderType": "3d",
+  "heldIcon": "item/stone_pickaxe",
+  "foodProperties": null,
+  "toolClass": "pickaxe",
+  "harvestLevel": 1,
+  "attackDamage": 3,
+  "enchantability": 5,
+  "depth": 0,
+  "category": "tool"
+}
