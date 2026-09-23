@@ -111,3 +111,4 @@ This document tracks all open questions, architectural choices, and design ambig
 | 2026-09-23 | DEC-004 | Meshing & Texture | Greedy meshing + GL_TEXTURE_2D_ARRAY | PROPOSED — needs approval |
 | 2026-09-23 | DEC-005 | Tick Loop Split | Integrated client/server (20 TPS fixed tick) | PROPOSED — needs approval |
 | 2026-09-23 | DEC-006 | Data Registries | 100% JSON-driven registry loaders | PROPOSED — needs approval |
+| 2026-09-23 | DEC-007 | Git Branch | Java Edition pushed to `Kanak234/ShilpLoka` on branch `java-edition` | APPROVED |
