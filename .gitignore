@@ -39,7 +39,6 @@ desktop.ini
 # Editor / tool state.
 .vscode/
 .idea/
-.claude/
 
 # Tauri's Rust build output (can be many GB).
 src-tauri/target/
