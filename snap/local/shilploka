@@ -1,0 +1,5 @@
+#!/bin/sh
+# ShilpLoka launcher wrapper for Snap.
+# Runs the Python GTK+WebKit launcher with the game HTML from $SNAP.
+
+exec python3 "$SNAP/bin/shilploka-launcher.py" "$@"

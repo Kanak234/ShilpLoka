@@ -1,0 +1,80 @@
+name: shilploka
+title: ShilpLoka
+summary: Ancient Indian voxel sandbox — Harappan bricks, barter, Vedic crafting
+description: |
+  ShilpLoka (शिल्पलोक) is a voxel sandbox game set in ancient India.
+  Build with Harappan baked bricks, trade spices with Dhanapati the merchant by
+  barter, craft at the Vedic altar, and explore a world of banyan and peepal
+  trees around the indestructible Ashoka Sthambha. Visit four historic city
+  sites: Harappa, Mohenjo-Daro, Lothal and Pataliputra.
+
+  Features:
+  - Mine and place blocks: baked brick, soil, sandstone, basalt, banyan wood
+    and bitumen mortar
+  - Barter economy with Dhanapati the merchant
+  - Vedic crafting altar and an in-game Learning Center guide
+  - 36-slot inventory and a 9-slot hotbar
+  - Heritage blocks such as the Ashoka Sthambha and Great Bath masonry are
+    protected and cannot be mined
+  - Your world saves itself every 30 seconds; press K to save any time
+  - Plays fully offline
+
+  Controls:
+  - Move: W A S D, Jump: Space, Crouch: Shift, Fly: F
+  - Mine: left click, Place: right click, Hotbar: 1 to 9
+  - Barter: B, Crafting: C, Learning Center: H, Inventory: E
+  - Save: K, Load last save: L, Fullscreen: F11
+
+license: Apache-2.0
+grade: stable
+confinement: strict
+base: core24
+
+contact: kanakprabhakar72@gmail.com
+website: https://github.com/Kanak234/ShilpLoka
+source-code: https://github.com/Kanak234/ShilpLoka
+issues: https://github.com/Kanak234/ShilpLoka/issues
+
+icon: snap/gui/shilploka.png
+
+platforms:
+  amd64:
+
+adopt-info: game
+
+parts:
+  game:
+    plugin: nil
+    build-snaps:
+      - node/22/stable
+    override-build: |
+      craftctl default
+      npm ci
+      npm run build
+      mkdir -p "$CRAFT_PART_INSTALL/game"
+      cp dist/index.html "$CRAFT_PART_INSTALL/game/index.html"
+      # Set version from package.json
+      VERSION=$(node -p "require('./package.json').version")
+      craftctl set version="$VERSION"
+
+  launcher:
+    plugin: dump
+    source: snap/local
+    organize:
+      shilploka-launcher.py: bin/shilploka-launcher.py
+      shilploka: bin/shilploka
+
+  runtime:
+    plugin: nil
+    stage-packages:
+      - python3-gi
+      - gir1.2-gtk-3.0
+      - gir1.2-webkit2-4.1
+
+apps:
+  shilploka:
+    command: bin/shilploka
+    extensions: [gnome]
+    environment:
+      PYTHONPATH: $SNAP/usr/lib/python3/dist-packages
+    common-id: io.github.Kanak234.ShilpLoka

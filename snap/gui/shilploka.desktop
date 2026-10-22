@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=ShilpLoka
+Comment=Ancient Indian Voxel Sandbox — build with Harappan bricks, barter with Dhanapati, craft at the Vedic altar
+Exec=shilploka
+Icon=${SNAP}/meta/gui/shilploka.png
+Categories=Game;Simulation;
+Keywords=voxel;sandbox;minecraft;india;
+Terminal=false
+StartupWMClass=shilploka
+Type=Application
