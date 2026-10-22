@@ -45,6 +45,9 @@ adopt-info: game
 parts:
   game:
     plugin: nil
+    # WHY: without a source the part builds in an empty folder; npm then walked up to
+    #      the repo root and wrote dist/ there, so the cp below found nothing.
+    source: .
     build-snaps:
       - node/22/stable
     override-build: |
