@@ -78,6 +78,13 @@
         "minWidth": 800,
         "minHeight": 600
       }
-    ]
+    ],
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      }
+    }
   }
 }
